@@ -78,6 +78,17 @@
   top: 50%;
 }
 
+/* ---- Current sentence (Speechify-style read-along) -------- */
+/* Applied to the [data-sid] span the reader is currently on. Sits beneath
+   saved ::highlight() colours (which paint over it) but above plain text. */
+.currentSentence {
+  background-color: var(--gold-soft);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  transition: background-color 180ms ease;
+}
+
 /* ---- Progress rail --------------------------------------- */
 .rail {
   position: absolute;

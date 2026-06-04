@@ -1,24 +1,44 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Continuous auto-scroll driven by a single rAF loop. Speed is expressed in
-// words-per-minute and converted to px/sec using the document's measured word
-// density (scrollHeight / wordCount). Delta-time based, so it runs identically
-// on 60Hz and 120Hz/ProMotion displays. All live state is in refs to avoid
-// stale closures; React state mirrors only what the UI needs to display.
+// Continuous auto-scroll driven by a single rAF loop. Speed is expressed as a
+// playback multiplier (0.75x, 1x, 1.25x, …) where 1x is a comfortable baseline
+// reading pace. Internally the multiplier maps to px/sec via the document's
+// measured word density (scrollHeight / wordCount). Delta-time based, so it runs
+// identically on 60Hz and 120Hz/ProMotion displays. All live state is in refs to
+// avoid stale closures; React state mirrors only what the UI needs to display.
 
-const MIN_WPM = 80;
-const MAX_WPM = 900;
-const DEFAULT_WPM = 260;
+// 1x baseline reading pace, in words per minute. The published API is the
+// multiplier; this constant just anchors what "1x" feels like.
+const BASE_WPM = 260;
+export const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
+const DEFAULT_SPEED = 1;
 const MAX_DELTA_MS = 50; // clamp background-tab gaps so resume doesn't jump
 
 export interface ScrollEngine {
   playing: boolean;
-  wpm: number;
+  speed: number; // playback multiplier, e.g. 1.5
+  speeds: readonly number[];
   toggle: () => void;
   play: () => void;
   pause: () => void;
-  setWpm: (n: number) => void;
-  nudgeWpm: (delta: number) => void;
+  setSpeed: (mult: number) => void;
+  stepSpeed: (dir: 1 | -1) => void;
+}
+
+type Speed = (typeof SPEEDS)[number];
+
+// Snap an arbitrary multiplier to the nearest supported step.
+function snap(mult: number): Speed {
+  let best: Speed = SPEEDS[0];
+  let bestDist = Infinity;
+  for (const s of SPEEDS) {
+    const d = Math.abs(s - mult);
+    if (d < bestDist) {
+      bestDist = d;
+      best = s;
+    }
+  }
+  return best;
 }
 
 export function useScrollEngine(
@@ -26,10 +46,10 @@ export function useScrollEngine(
   wordCount: number
 ): ScrollEngine {
   const [playing, setPlaying] = useState(false);
-  const [wpm, setWpmState] = useState(DEFAULT_WPM);
+  const [speed, setSpeedState] = useState<number>(DEFAULT_SPEED);
 
   const playingRef = useRef(false);
-  const wpmRef = useRef(DEFAULT_WPM);
+  const speedRef = useRef(DEFAULT_SPEED);
   const rafRef = useRef<number | null>(null);
   const lastTsRef = useRef<number | null>(null);
   const accumRef = useRef(0); // sub-pixel carry
@@ -45,7 +65,7 @@ export function useScrollEngine(
     const el = scrollerRef.current;
     if (!el || wordCount <= 0) return 0;
     const pxPerWord = el.scrollHeight / wordCount;
-    return (wpmRef.current / 60) * pxPerWord;
+    return ((BASE_WPM * speedRef.current) / 60) * pxPerWord;
   }, [scrollerRef, wordCount]);
 
   const tick = useCallback(
@@ -103,16 +123,21 @@ export function useScrollEngine(
     else play();
   }, [play, pause]);
 
-  const setWpm = useCallback((n: number) => {
-    const clamped = Math.max(MIN_WPM, Math.min(MAX_WPM, Math.round(n)));
-    wpmRef.current = clamped;
-    setWpmState(clamped);
+  const setSpeed = useCallback((mult: number) => {
+    const snapped = snap(mult);
+    speedRef.current = snapped;
+    setSpeedState(snapped);
   }, []);
 
-  const nudgeWpm = useCallback(
-    (delta: number) => setWpm(wpmRef.current + delta),
-    [setWpm]
-  );
+  // Step to the adjacent supported speed (clamped at the ends).
+  const stepSpeed = useCallback((dir: 1 | -1) => {
+    const i = SPEEDS.indexOf(speedRef.current as Speed);
+    const cur = i === -1 ? SPEEDS.indexOf(snap(speedRef.current)) : i;
+    const next = Math.max(0, Math.min(SPEEDS.length - 1, cur + dir));
+    const snapped = SPEEDS[next];
+    speedRef.current = snapped;
+    setSpeedState(snapped);
+  }, []);
 
   // Pause when the reader manually scrolls (wheel / touch / scroll keys), so the
   // engine never fights the user. Reconciliation is automatic — the next play()
@@ -137,5 +162,5 @@ export function useScrollEngine(
     };
   }, []);
 
-  return { playing, wpm, toggle, play, pause, setWpm, nudgeWpm };
+  return { playing, speed, speeds: SPEEDS, toggle, play, pause, setSpeed, stepSpeed };
 }

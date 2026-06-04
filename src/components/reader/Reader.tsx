@@ -24,6 +24,11 @@ const HIGHLIGHT_STYLE = `
 
 const CHORD_TIMEOUT = 1100; // ms to complete a chord before it resets
 
+// "1.5x", "1x" — trims a trailing ".0" so whole multipliers read cleanly.
+function formatSpeed(mult: number): string {
+  return `${Number.isInteger(mult) ? mult : mult.toFixed(2).replace(/0$/, "")}x`;
+}
+
 export default function Reader({
   docId,
   title,
@@ -76,6 +81,26 @@ export default function Reader({
     onScroll();
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Speechify-style read-along: paint a soft background on the span the reader
+  // is currently on. The sentence span already carries data-sid, so we just
+  // toggle a class as current.sid moves.
+  const prevSentenceRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const content = contentRef.current;
+    if (prevSentenceRef.current) {
+      prevSentenceRef.current.classList.remove(styles.currentSentence);
+      prevSentenceRef.current = null;
+    }
+    if (!content || !current.sid) return;
+    const el = content.querySelector<HTMLElement>(
+      `[data-sid="${current.sid}"]`
+    );
+    if (el) {
+      el.classList.add(styles.currentSentence);
+      prevSentenceRef.current = el;
+    }
+  }, [current.sid]);
 
   const doHighlight = useCallback(
     async (target: HighlightTarget) => {
@@ -149,12 +174,12 @@ export default function Reader({
         }
         if (e.key === "ArrowUp" || e.key === "+" || e.key === "=") {
           e.preventDefault();
-          engine.nudgeWpm(20);
+          engine.stepSpeed(1);
           return;
         }
         if (e.key === "ArrowDown" || e.key === "-") {
           e.preventDefault();
-          engine.nudgeWpm(-20);
+          engine.stepSpeed(-1);
           return;
         }
         if (e.key === "Escape") {
@@ -294,11 +319,11 @@ export default function Reader({
           {engine.playing ? "❚❚" : "▶"}
         </button>
         <div className={styles.speed}>
-          <button onClick={() => engine.nudgeWpm(-20)} aria-label="Slower">
+          <button onClick={() => engine.stepSpeed(-1)} aria-label="Slower">
             −
           </button>
-          <span>{engine.wpm} wpm</span>
-          <button onClick={() => engine.nudgeWpm(20)} aria-label="Faster">
+          <span>{formatSpeed(engine.speed)}</span>
+          <button onClick={() => engine.stepSpeed(1)} aria-label="Faster">
             +
           </button>
         </div>
