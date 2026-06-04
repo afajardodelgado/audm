@@ -1,0 +1,81 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import type { DocumentSummary } from "@/lib/types";
+import styles from "./Shelf.module.css";
+
+const STATUS_LABEL: Record<DocumentSummary["status"], string> = {
+  pending: "Preparing…",
+  extracting: "Reflowing…",
+  ready: "",
+  failed: "Couldn’t be read",
+  ocr_needed: "Scanned — no text layer",
+};
+
+export default function BookObject({
+  doc,
+  onDelete,
+}: {
+  doc: DocumentSummary;
+  onDelete: (id: string) => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const isReady = doc.status === "ready";
+  const isBusy = doc.status === "pending" || doc.status === "extracting";
+  const minutes = doc.wordCount ? Math.max(1, Math.round(doc.wordCount / 220)) : 0;
+
+  const inner = (
+    <article
+      className={`${styles.book} ${isReady ? styles.bookReady : ""} ${
+        isBusy ? styles.bookBusy : ""
+      }`}
+      data-type={doc.sourceType}
+    >
+      <div className={styles.bookSpine} aria-hidden />
+      <div className={styles.bookFace}>
+        <span className={styles.bookType}>{doc.sourceType.toUpperCase()}</span>
+        <h2 className={styles.bookTitle}>{doc.title}</h2>
+        {doc.author && <p className={styles.bookAuthor}>{doc.author}</p>}
+        <div className={styles.bookMeta}>
+          {isReady && minutes > 0 && <span>{minutes} min read</span>}
+          {!isReady && (
+            <span className={styles.bookStatus}>{STATUS_LABEL[doc.status]}</span>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+
+  return (
+    <div className={styles.bookWrap}>
+      {isReady ? (
+        <Link href={`/read/${doc.id}`} className={styles.bookLink}>
+          {inner}
+        </Link>
+      ) : (
+        <div className={styles.bookLink}>{inner}</div>
+      )}
+
+      {confirming ? (
+        <div className={styles.bookActions}>
+          <button
+            className={styles.confirmDelete}
+            onClick={() => onDelete(doc.id)}
+          >
+            Remove
+          </button>
+          <button onClick={() => setConfirming(false)}>Keep</button>
+        </div>
+      ) : (
+        <button
+          className={styles.removeBtn}
+          aria-label="Remove from shelf"
+          onClick={() => setConfirming(true)}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}

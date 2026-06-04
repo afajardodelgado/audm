@@ -1,17 +1,31 @@
 {
-  "name": "audm-app",
+  "name": "audm",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "db:provider": "node scripts/set-db-provider.mjs",
+    "build": "npm run db:provider && prisma generate && next build",
     "start": "next start",
+    "start:railway": "npm run db:provider && prisma migrate deploy && next start",
+    "postinstall": "prisma generate",
     "lint": "eslint"
   },
   "dependencies": {
+    "@fontsource-variable/newsreader": "^5.2.10",
+    "@fontsource-variable/source-serif-4": "^5.2.9",
+    "@lingo-reader/epub-parser": "^0.4.6",
+    "@prisma/adapter-better-sqlite3": "^7.8.0",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
+    "@supabase/ssr": "^0.10.3",
+    "@supabase/supabase-js": "^2.107.0",
+    "cheerio": "^1.2.0",
+    "dotenv": "^17.4.2",
     "next": "16.2.7",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "unpdf": "^1.6.2"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -20,6 +34,7 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
+    "prisma": "^7.8.0",
     "typescript": "^5"
   }
 }

@@ -1,0 +1,320 @@
+.reader {
+  position: relative;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ---- Top bar --------------------------------------------- */
+.bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 clamp(1rem, 3vw, 2.5rem);
+  z-index: 10;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  background: linear-gradient(var(--paper) 60%, transparent);
+}
+.backLink:hover,
+.barShortcuts:hover {
+  color: var(--ink);
+}
+.barTitle {
+  font-style: italic;
+  font-family: var(--font-body);
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.barAuthor {
+  color: var(--ink-faint);
+}
+
+/* ---- Scroller + content ---------------------------------- */
+.scroller {
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none; /* the rail is our progress indicator */
+}
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+.content {
+  padding: 38vh clamp(1.25rem, 5vw, 2rem) 0;
+}
+.docTitle {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 1.4rem + 2vw, 3rem);
+  font-weight: 600;
+  line-height: 1.1;
+  margin-bottom: 0.4rem;
+}
+.docByline {
+  font-size: 1.15rem;
+  margin-bottom: 2.5rem;
+}
+.listItem {
+  position: relative;
+  padding-left: 1.2em;
+}
+.bullet {
+  position: absolute;
+  left: 0;
+  color: var(--ink-faint);
+}
+.endSpace {
+  height: 60vh;
+}
+
+/* ---- Focus line ------------------------------------------ */
+.focusLine {
+  top: 50%;
+}
+
+/* ---- Progress rail --------------------------------------- */
+.rail {
+  position: absolute;
+  left: clamp(0.5rem, 1.5vw, 1.25rem);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 8;
+}
+.tick {
+  width: 14px;
+  height: 1.5px;
+  background: var(--ink-faint);
+  opacity: 0.35;
+  transition: opacity 200ms ease, background 200ms ease, width 200ms ease;
+}
+.tickOn {
+  background: var(--gold);
+  opacity: 0.9;
+  width: 20px;
+}
+
+/* ---- Toolbar --------------------------------------------- */
+.toolbar {
+  position: absolute;
+  bottom: clamp(1rem, 4vh, 2rem);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.6rem 1.1rem;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  border: 1px solid var(--ink-faint);
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  font-family: var(--font-display);
+}
+.playBtn {
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 1px solid var(--ink-soft);
+  background: transparent;
+  color: var(--ink);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 150ms ease;
+}
+.playBtn:hover {
+  background: var(--gold-soft);
+}
+.speed {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.speed button {
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 1px solid var(--ink-faint);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.speed span {
+  min-width: 4.5rem;
+  text-align: center;
+}
+.colors {
+  display: flex;
+  gap: 0.4rem;
+}
+.swatch {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.swatchOn {
+  border-color: var(--ink);
+}
+.sw_yellow {
+  background: var(--hl-yellow);
+}
+.sw_rose {
+  background: var(--hl-rose);
+}
+.sw_blue {
+  background: var(--hl-blue);
+}
+.sw_green {
+  background: var(--hl-green);
+}
+.chordHint {
+  position: absolute;
+  top: -2.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.25rem 0.7rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+/* ---- Comment popover ------------------------------------- */
+.popoverBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(31, 30, 29, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+.popover {
+  width: min(28rem, 90vw);
+  background: var(--paper);
+  border: 1px solid var(--ink-soft);
+  padding: 1.25rem;
+  box-shadow: 0 24px 60px -30px rgba(0, 0, 0, 0.5);
+}
+.popoverLabel {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  margin-bottom: 0.7rem;
+  color: var(--ink);
+}
+.popover textarea {
+  width: 100%;
+  resize: vertical;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  padding: 0.6rem 0.7rem;
+}
+.popover textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.popoverActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+.popoverActions button {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  padding: 0.45rem 1rem;
+  cursor: pointer;
+  border: 1px solid var(--ink-soft);
+  background: transparent;
+  color: var(--ink);
+}
+.popoverSave {
+  background: var(--ink) !important;
+  color: var(--paper) !important;
+}
+
+/* ---- Margin notes (Word-comment style) ------------------- */
+.marginNotes {
+  position: absolute;
+  top: 0;
+  right: clamp(0.5rem, 3vw, 2rem);
+  bottom: 0;
+  width: 1.6rem;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 7;
+}
+.noteMarker {
+  position: absolute;
+  pointer-events: auto;
+  /* top set inline; offset to align with the scrolled content */
+}
+.noteDot {
+  display: block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50% 50% 50% 2px;
+  cursor: pointer;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+.noteCard {
+  position: absolute;
+  right: 1.4rem;
+  top: -0.3rem;
+  width: 16rem;
+  background: var(--paper);
+  border: 1px solid var(--ink-soft);
+  padding: 0.7rem 0.85rem;
+  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.5);
+  font-family: var(--font-body);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.noteCard p + p {
+  margin-top: 0.5rem;
+}
+
+/* ---- Not-ready state ------------------------------------- */
+.notReady {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem;
+}
+.notReadyTitle {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  margin: 1rem 0 0.75rem;
+}
+.notReadyMsg {
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+  max-width: 32rem;
+}
+
+/* The note offset must move with content scroll; handled by JS top values
+   already in content space, so translate by negative scrollTop via the
+   scroller. We approximate by positioning relative to the scroller and letting
+   recompute() keep it aligned. */

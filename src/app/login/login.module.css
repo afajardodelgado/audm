@@ -1,0 +1,73 @@
+.page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+.card {
+  width: min(26rem, 92vw);
+}
+.back {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--taupe-soft);
+}
+.back:hover {
+  color: var(--parchment);
+}
+.title {
+  font-size: 2.25rem;
+  color: var(--parchment);
+  margin: 1.25rem 0 0.6rem;
+}
+.note {
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--taupe-soft);
+  margin-bottom: 2rem;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  color: var(--taupe);
+}
+.input {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  padding: 0.7rem 0.8rem;
+  background: transparent;
+  border: 1px solid var(--taupe);
+  color: var(--parchment);
+}
+.input::placeholder {
+  color: var(--taupe);
+}
+.submit {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--taupe);
+  background: transparent;
+  color: var(--parchment);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.skip {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--gold);
+}
+.skip:hover {
+  color: var(--parchment);
+}

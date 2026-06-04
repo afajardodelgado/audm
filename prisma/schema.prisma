@@ -1,0 +1,120 @@
+// Audm data model.
+// Principle: extract a document once into paragraph-segmented Blocks;
+// anchor highlights to stable content IDs (never live DOM nodes).
+// Sentences are derived deterministically at render time via Intl.Segmenter
+// over Block.text, so there is no Sentence table.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  // Provider is set to "sqlite" for zero-setup local dev. The Railway build
+  // runs `node scripts/set-db-provider.mjs` (via package.json) which rewrites
+  // this single line to "postgresql" when DATABASE_PROVIDER=postgresql.
+  // Schema is kept portable across both (no Postgres-only column types).
+  // (Prisma 7: connection URL lives in prisma.config.ts, not here.)
+  provider = "sqlite"
+}
+
+enum SourceType {
+  pdf
+  epub
+}
+
+enum DocStatus {
+  pending
+  extracting
+  ready
+  failed
+  ocr_needed
+}
+
+enum BlockType {
+  paragraph
+  heading
+  blockquote
+  listitem
+}
+
+// Placeholder user. Pre-auth, everything is owned by the synthetic "local" user.
+// When Supabase auth is switched on, id mirrors the Supabase auth uid.
+model User {
+  id         String      @id
+  email      String?
+  createdAt  DateTime    @default(now())
+  documents  Document[]
+  highlights Highlight[]
+  comments   Comment[]
+}
+
+model Document {
+  id         String      @id @default(uuid())
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  author     String?
+  sourceType SourceType
+  filePath   String // path on the volume: {userId}/{id}.{ext}
+  fileHash   String // sha256 — dedupe + extraction cache key
+  status     DocStatus   @default(pending)
+  error      String? // failure detail when status = failed
+  wordCount  Int         @default(0)
+  meta       Json? // page count, language, spine info, etc.
+  createdAt  DateTime    @default(now())
+  blocks     Block[]
+  highlights Highlight[]
+
+  @@index([userId])
+  @@index([fileHash])
+}
+
+// One paragraph / heading / quote, in reading order.
+model Block {
+  id            String    @id @default(uuid())
+  documentId    String
+  document      Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  index         Int // 0-based reading order
+  type          BlockType @default(paragraph)
+  level         Int? // heading level 1-6
+  text          String // clean plain text (ligatures/soft-hyphens normalized)
+  sentenceCount Int       @default(0)
+
+  @@unique([documentId, index])
+  @@index([documentId])
+}
+
+// Robust, reload-surviving anchor (W3C Web Annotation TextQuote/TextPosition).
+model Highlight {
+  id          String    @id @default(uuid())
+  documentId  String
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startSid    String // "blockIndex:sentenceIndex"
+  endSid      String // equals startSid for single-sentence highlights
+  startOffset Int // char offset within start sentence
+  endOffset   Int // char offset within end sentence
+  exactText   String // verification on re-anchor
+  prefix      String    @default("") // ~32 chars before (fuzzy re-anchor)
+  suffix      String    @default("") // ~32 chars after
+  color       String    @default("yellow")
+  createdAt   DateTime  @default(now())
+  comments    Comment[]
+
+  @@index([documentId, userId])
+}
+
+model Comment {
+  id          String    @id @default(uuid())
+  highlightId String
+  highlight   Highlight @relation(fields: [highlightId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  body        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([highlightId])
+}
