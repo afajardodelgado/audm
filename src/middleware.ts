@@ -9,6 +9,8 @@ export function middleware(_req: NextRequest) {
 }
 
 export const config = {
-  // Run on app routes but skip static assets and image optimisation.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Run on app routes but skip static assets, image optimisation, and the upload
+  // endpoint — the proxy buffers request bodies, so excluding /api/upload keeps
+  // large file uploads from being buffered (and truncated) in memory.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/upload).*)"],
 };
