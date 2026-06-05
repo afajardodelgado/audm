@@ -93,6 +93,22 @@ export default function Reader({
     else engine.toggle();
   }, [narrator, buildUnits, current.sid, engine]);
 
+  // Click a sentence to (re)start narration from the top of that sentence —
+  // Speechify-style. Ignore clicks that are part of a text selection (the reader
+  // may be selecting to highlight) and clicks outside any sentence span.
+  const onContentClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (!narrator.supported) return;
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) return; // a selection, not a plain click
+      const span = (e.target as HTMLElement).closest<HTMLElement>("[data-sid]");
+      const sid = span?.dataset.sid;
+      if (!sid) return;
+      narrator.play(buildUnits(), sid);
+    },
+    [narrator, buildUnits]
+  );
+
   // One shared rate control feeds both the narrator and the scroll fallback.
   const changeRate = useCallback(
     (dir: 1 | -1) => {
@@ -372,7 +388,11 @@ export default function Reader({
       <ProgressRail progress={progress} />
 
       <div ref={scrollerRef} className={styles.scroller}>
-        <article ref={contentRef} className={`reading ${styles.content}`}>
+        <article
+          ref={contentRef}
+          className={`reading ${styles.content}`}
+          onClick={onContentClick}
+        >
           <h1 className={styles.docTitle}>{title}</h1>
           {author && <p className={`byline ${styles.docByline}`}>{author}</p>}
           {blocks.map((b) => (

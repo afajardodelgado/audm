@@ -112,6 +112,19 @@ assert(!!secondSpoken && secondSpoken !== firstSpoken, "advanced to next sentenc
 const secondSid = await activeSid(page);
 assert(secondSid && secondSid !== firstSid, `highlight advanced ${firstSid} -> ${secondSid}`);
 
+// 4b) Click a later sentence → narration restarts from THAT sentence's sid.
+const targetSid = await page.evaluate(() => {
+  const spans = [...document.querySelectorAll("[data-sid]")];
+  // pick a sentence well down the list so it differs from the current cursor
+  return spans[Math.min(8, spans.length - 1)]?.getAttribute("data-sid") ?? null;
+});
+await page.locator(`[data-sid="${targetSid}"]`).click();
+await page.waitForTimeout(300);
+const clickedSid = await activeSid(page);
+assert(clickedSid === targetSid, `click started narration at clicked sentence ${targetSid} (got ${clickedSid})`);
+const clickedSpoken = await page.evaluate(() => window.__ttsFake.currentText());
+assert(!!clickedSpoken, "an utterance is speaking after clicking a sentence");
+
 // 5) Esc → stop → tts-word cleared, no narrating highlight forced.
 await page.keyboard.press("Escape");
 await page.waitForTimeout(200);
