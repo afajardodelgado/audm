@@ -15,4 +15,6 @@ export interface ExtractResult {
   meta: Prisma.InputJsonValue;
   /** True when the source had no extractable text layer (likely scanned). */
   needsOcr: boolean;
+  /** Cover image bytes (PDF page 1 / EPUB cover), when one could be produced. */
+  coverImage?: Buffer;
 }

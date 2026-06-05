@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { BlockData, HighlightData, DocStatus } from "@/lib/types";
 import { BlockRenderer } from "./BlockRenderer";
@@ -39,6 +39,7 @@ export default function Reader({
   status,
   blocks,
   initialHighlights,
+  lastReadSid,
 }: {
   docId: string;
   title: string;
@@ -46,6 +47,7 @@ export default function Reader({
   status: DocStatus;
   blocks: BlockData[];
   initialHighlights: HighlightData[];
+  lastReadSid: string | null;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -66,6 +68,26 @@ export default function Reader({
   const current = useCurrentLine(scrollerRef, contentRef, ready);
   const hl = useHighlights(docId, contentRef, initialHighlights, ready);
   const narrator = useNarrator();
+
+  // Map a sid ("blockIndex:sentenceIndex") to a 0..1 reading fraction using the
+  // per-block sentence counts. Precompute the cumulative offset per block so a
+  // sid resolves in O(1). Total sentences is the denominator.
+  const sidToFraction = useMemo(() => {
+    const offsets: number[] = [];
+    let acc = 0;
+    for (const b of blocks) {
+      offsets.push(acc);
+      acc += Math.max(1, b.sentenceCount);
+    }
+    const total = acc || 1;
+    return (sid: string): number => {
+      const [bi, si] = sid.split(":").map(Number);
+      if (!Number.isFinite(bi) || !Number.isFinite(si)) return 0;
+      const base = offsets[bi] ?? 0;
+      // +1 so reaching the last sentence reads as 100%, not (n-1)/n.
+      return Math.min(1, (base + si + 1) / total);
+    };
+  }, [blocks]);
 
   // Shared playback rate (multiplier) across narration and the fallback scroll.
   const [rate, setRate] = useState(1);
@@ -140,6 +162,67 @@ export default function Reader({
     onScroll();
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Restore the saved reading position once, after the spans exist. Scroll the
+  // last-read sentence to the focus line so reopening resumes where you left off.
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (!ready || restoredRef.current || !lastReadSid) return;
+    restoredRef.current = true;
+    const el = contentRef.current?.querySelector<HTMLElement>(
+      `[data-sid="${lastReadSid}"]`
+    );
+    el?.scrollIntoView({ block: "center" });
+  }, [ready, lastReadSid]);
+
+  // Persist reading progress (the furthest sentence reached). Track the max
+  // fraction seen this session, throttle PATCHes to ~5s, and flush on leave so
+  // a closed tab still records where you got to. The server keeps it monotonic.
+  const furthestRef = useRef({ frac: 0, sid: "" });
+  const lastSaveRef = useRef(0);
+  const saveProgress = useCallback(
+    (immediate: boolean) => {
+      const { frac, sid } = furthestRef.current;
+      if (!sid) return;
+      const now = Date.now();
+      if (!immediate && now - lastSaveRef.current < 5000) return;
+      lastSaveRef.current = now;
+      const body = JSON.stringify({ lastReadSid: sid, readingProgress: frac });
+      if (immediate && navigator.sendBeacon) {
+        // sendBeacon survives pagehide where fetch may be cancelled.
+        navigator.sendBeacon(
+          `/api/documents/${docId}`,
+          new Blob([body], { type: "application/json" })
+        );
+      } else {
+        void fetch(`/api/documents/${docId}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body,
+          keepalive: true,
+        });
+      }
+    },
+    [docId]
+  );
+
+  useEffect(() => {
+    if (!activeSid) return;
+    const frac = sidToFraction(activeSid);
+    if (frac > furthestRef.current.frac) {
+      furthestRef.current = { frac, sid: activeSid };
+      saveProgress(false);
+    }
+  }, [activeSid, sidToFraction, saveProgress]);
+
+  useEffect(() => {
+    const flush = () => saveProgress(true);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush(); // also flush on unmount (client-side nav away)
+    };
+  }, [saveProgress]);
 
   // Speechify-style read-along: paint a soft background on the active sentence.
   // The driver is the narrator while it's speaking, else the scroll observer.

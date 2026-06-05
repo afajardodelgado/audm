@@ -59,6 +59,7 @@ export default async function ReadPage({
       status={document.status}
       blocks={blocks}
       initialHighlights={highlights}
+      lastReadSid={document.lastReadSid}
     />
   );
 }

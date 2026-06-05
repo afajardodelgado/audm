@@ -15,6 +15,8 @@ export interface DocumentSummary {
   sourceType: "pdf" | "epub" | "text" | "web";
   status: DocStatus;
   wordCount: number;
+  readingProgress: number; // 0..1, furthest sentence reached
+  hasCover: boolean;
   createdAt: string;
 }
 

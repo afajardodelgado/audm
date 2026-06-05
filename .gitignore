@@ -51,6 +51,11 @@ next-env.d.ts
 # local uploaded files (mirrors the Railway volume)
 /data
 
+# tesseract.js OCR language data (downloaded at runtime, ~5MB+)
+*.traineddata
+# EPUB parser resource-extraction dir (legacy default before explicit temp dir)
+/images
+
 # Claude Code local harness artifacts
 /.claude
 

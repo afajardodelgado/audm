@@ -187,6 +187,24 @@
 .bookStatus {
   color: var(--gold);
 }
+.bookProgress {
+  color: var(--gold);
+}
+/* Cover thumbnail (PDF page 1 / EPUB cover). Sits atop the face; the text
+   below still shows title/author so the card reads even with a plain cover. */
+.bookCover {
+  width: 100%;
+  height: 9rem;
+  object-fit: cover;
+  object-position: top center;
+  border-radius: 2px;
+  margin-bottom: 0.7rem;
+  background: rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 20px -12px rgba(0, 0, 0, 0.8);
+}
+.bookHasCover .bookType {
+  font-size: 0.62rem;
+}
 
 /* ---- Upload affordances ---------------------------------- */
 .addMore {

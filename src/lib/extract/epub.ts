@@ -1,7 +1,11 @@
 import { initEpubFile } from "@lingo-reader/epub-parser";
 import * as cheerio from "cheerio";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { rm } from "node:fs/promises";
 import type { ExtractResult, ExtractedBlock } from "./types";
 import { countWords } from "./segment";
+import { generateEpubCover } from "./cover";
 
 const BLOCK_TAGS = new Set([
   "p",
@@ -21,7 +25,11 @@ const BLOCK_TAGS = new Set([
  * and we simply walk block-level elements per chapter, dropping all CSS/layout.
  */
 export async function extractEpub(data: Buffer): Promise<ExtractResult> {
-  const epub = await initEpubFile(new Uint8Array(data));
+  // Give the parser an isolated temp dir for the resources it extracts to disk
+  // (cover image, etc.) instead of its default "./images" under cwd. We read the
+  // cover from here, then remove the dir.
+  const resourceDir = join(tmpdir(), `audm-epub-${randomId()}`);
+  const epub = await initEpubFile(new Uint8Array(data), resourceDir);
 
   let title = "";
   let author: string | undefined;
@@ -50,7 +58,12 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
     blocks.push(...htmlToBlocks(chapter.html));
   }
 
+  // Read the cover while the parser's extracted resources are still on disk.
+  const coverImage = (await generateEpubCover(epub, resourceDir)) ?? undefined;
+
   epub.destroy?.();
+  // Best-effort cleanup of the temp resource dir.
+  await rm(resourceDir, { recursive: true, force: true }).catch(() => {});
 
   const wordCount = blocks.reduce((n, b) => n + countWords(b.text), 0);
 
@@ -61,7 +74,13 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
     wordCount,
     meta: { chapters: spine.length },
     needsOcr: false,
+    coverImage,
   };
+}
+
+// A short non-crypto id for the per-extraction temp dir.
+function randomId(): string {
+  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
 export function htmlToBlocks(html: string): ExtractedBlock[] {

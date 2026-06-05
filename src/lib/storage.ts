@@ -17,6 +17,11 @@ export function filePathFor(
   return path.join(storageRoot(), userId, `${documentId}.${sourceType}`);
 }
 
+// {root}/{userId}/{documentId}.cover.png — generated cover thumbnail.
+export function coverPathFor(userId: string, documentId: string): string {
+  return path.join(storageRoot(), userId, `${documentId}.cover.png`);
+}
+
 /** Persist an uploaded file to the volume, creating the user dir as needed. */
 export async function saveFile(absPath: string, data: Buffer): Promise<void> {
   await mkdir(path.dirname(absPath), { recursive: true });

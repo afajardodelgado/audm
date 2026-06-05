@@ -65,6 +65,12 @@ model Document {
   error      String? // failure detail when status = failed
   wordCount  Int         @default(0)
   meta       Json? // page count, language, spine info, etc.
+  // Reading progress: the furthest sentence reached ("blockIndex:sentenceIndex")
+  // and a 0..1 fraction for the shelf badge. Both monotonic (never decrease).
+  lastReadSid     String?
+  readingProgress Float    @default(0)
+  // Whether a cover image was generated at ingest (served from /api/files/[id]/cover).
+  hasCover   Boolean     @default(false)
   createdAt  DateTime    @default(now())
   blocks     Block[]
   highlights Highlight[]

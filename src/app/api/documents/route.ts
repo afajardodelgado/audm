@@ -15,6 +15,8 @@ export async function GET() {
       sourceType: true,
       status: true,
       wordCount: true,
+      readingProgress: true,
+      hasCover: true,
       createdAt: true,
     },
   });

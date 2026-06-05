@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { readStoredFile } from "@/lib/storage";
+import { readStoredFile, saveFile, coverPathFor } from "@/lib/storage";
 import { extractPdf } from "./pdf";
 import { extractEpub } from "./epub";
 import { runOcr } from "./ocr";
@@ -21,7 +21,7 @@ export async function runExtraction(data: Buffer, sourceType: SourceType): Promi
  */
 export async function persistResult(
   documentId: string,
-  doc: Pick<Document, "title" | "author">,
+  doc: Pick<Document, "title" | "author" | "userId">,
   result: ExtractResult
 ): Promise<void> {
   await prisma.$transaction([
@@ -38,12 +38,24 @@ export async function persistResult(
     }),
   ]);
 
+  // Save the cover thumbnail (best-effort) before flipping to ready.
+  let hasCover = false;
+  if (result.coverImage) {
+    try {
+      await saveFile(coverPathFor(doc.userId, documentId), result.coverImage);
+      hasCover = true;
+    } catch {
+      /* cover is optional — proceed without it */
+    }
+  }
+
   await prisma.document.update({
     where: { id: documentId },
     data: {
       status: "ready",
       wordCount: result.wordCount,
       meta: result.meta,
+      hasCover,
       // Prefer embedded metadata; keep the upload-derived title otherwise.
       title: result.title?.trim() || doc.title,
       author: result.author ?? doc.author,
