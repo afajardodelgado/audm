@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { BlockData, HighlightData, DocStatus } from "@/lib/types";
 import { BlockRenderer } from "./BlockRenderer";
-import { useScrollEngine } from "./useScrollEngine";
+import { useScrollEngine, stepSpeedValue } from "./useScrollEngine";
 import { useCurrentLine } from "./useCurrentLine";
 import { useHighlights } from "./useHighlights";
+import { useNarrator } from "./useNarrator";
+import type { NarrationUnit } from "@/lib/narrator/types";
 import { rangeForTarget, type HighlightTarget, HL_COLORS } from "@/lib/anchor";
 import ProgressRail from "./ProgressRail";
 import CommentPopover from "./CommentPopover";
@@ -20,6 +22,7 @@ const HIGHLIGHT_STYLE = `
 ::highlight(hl-rose){background-color:var(--hl-rose);color:var(--hl-rose-ink);}
 ::highlight(hl-blue){background-color:var(--hl-blue);color:var(--hl-blue-ink);}
 ::highlight(hl-green){background-color:var(--hl-green);color:var(--hl-green-ink);}
+::highlight(tts-word){background-color:var(--gold);color:var(--paper);}
 `;
 
 const CHORD_TIMEOUT = 1100; // ms to complete a chord before it resets
@@ -62,6 +65,46 @@ export default function Reader({
   const engine = useScrollEngine(scrollerRef, wordCount);
   const current = useCurrentLine(scrollerRef, contentRef, ready);
   const hl = useHighlights(docId, contentRef, initialHighlights, ready);
+  const narrator = useNarrator();
+
+  // Shared playback rate (multiplier) across narration and the fallback scroll.
+  const [rate, setRate] = useState(1);
+
+  // Build the sentence units to speak from the rendered spans, in order. The
+  // span text includes a trailing render space between sentences — trim it for
+  // speech; the sid mapping is unaffected.
+  const buildUnits = useCallback((): NarrationUnit[] => {
+    const content = contentRef.current;
+    if (!content) return [];
+    return Array.from(
+      content.querySelectorAll<HTMLElement>("[data-sid]")
+    ).map((el) => ({ sid: el.dataset.sid!, text: (el.textContent ?? "").trimEnd() }));
+  }, []);
+
+  // While narrating, the narrator is the clock: it drives the gold sentence
+  // highlight and the page scrolls to follow it. Otherwise the scroll observer
+  // (current.sid) drives the highlight. Exactly one driver at a time.
+  const narrating = narrator.playing || narrator.currentSid !== null;
+  const activeSid = narrating ? narrator.currentSid : current.sid;
+
+  // Play/pause: narration when speech is supported, else silent auto-scroll.
+  const togglePlay = useCallback(() => {
+    if (narrator.supported) narrator.toggle(buildUnits, current.sid ?? undefined);
+    else engine.toggle();
+  }, [narrator, buildUnits, current.sid, engine]);
+
+  // One shared rate control feeds both the narrator and the scroll fallback.
+  const changeRate = useCallback(
+    (dir: 1 | -1) => {
+      setRate((prev) => {
+        const next = stepSpeedValue(prev, dir);
+        narrator.setRate(next);
+        engine.setSpeed(next);
+        return next;
+      });
+    },
+    [narrator, engine]
+  );
 
   // Mark ready after first paint so observers/anchoring attach to real spans.
   useEffect(() => {
@@ -82,9 +125,8 @@ export default function Reader({
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Speechify-style read-along: paint a soft background on the span the reader
-  // is currently on. The sentence span already carries data-sid, so we just
-  // toggle a class as current.sid moves.
+  // Speechify-style read-along: paint a soft background on the active sentence.
+  // The driver is the narrator while it's speaking, else the scroll observer.
   const prevSentenceRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const content = contentRef.current;
@@ -92,15 +134,48 @@ export default function Reader({
       prevSentenceRef.current.classList.remove(styles.currentSentence);
       prevSentenceRef.current = null;
     }
-    if (!content || !current.sid) return;
-    const el = content.querySelector<HTMLElement>(
-      `[data-sid="${current.sid}"]`
-    );
+    if (!content || !activeSid) return;
+    const el = content.querySelector<HTMLElement>(`[data-sid="${activeSid}"]`);
     if (el) {
       el.classList.add(styles.currentSentence);
       prevSentenceRef.current = el;
     }
-  }, [current.sid]);
+  }, [activeSid]);
+
+  // While narrating, keep the spoken sentence centered in view. (useScrollEngine
+  // only pauses on wheel/touch, not programmatic scroll, so there's no fight.)
+  useEffect(() => {
+    if (!narrator.playing || !narrator.currentSid) return;
+    const el = contentRef.current?.querySelector<HTMLElement>(
+      `[data-sid="${narrator.currentSid}"]`
+    );
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [narrator.currentSid, narrator.playing]);
+
+  // Word-level highlight via the CSS Custom Highlight API — a Range over the
+  // sentence span's single text node, never a DOM split (preserves the
+  // single-text-node invariant that anchor.ts relies on).
+  useEffect(() => {
+    if (typeof CSS === "undefined" || !("highlights" in CSS)) return;
+    const wr = narrator.currentWordRange;
+    if (!wr) {
+      CSS.highlights.delete("tts-word");
+      return;
+    }
+    const span = contentRef.current?.querySelector<HTMLElement>(
+      `[data-sid="${wr.sid}"]`
+    );
+    const node = span?.firstChild;
+    if (!node || node.nodeType !== Node.TEXT_NODE) {
+      CSS.highlights.delete("tts-word");
+      return;
+    }
+    const len = (node as Text).length;
+    const r = document.createRange();
+    r.setStart(node, Math.min(wr.start, len));
+    r.setEnd(node, Math.min(wr.end, len));
+    CSS.highlights.set("tts-word", new Highlight(r));
+  }, [narrator.currentWordRange]);
 
   const doHighlight = useCallback(
     async (target: HighlightTarget) => {
@@ -169,21 +244,22 @@ export default function Reader({
       if (!chordRef.current.buf) {
         if (e.code === "Space") {
           e.preventDefault();
-          engine.toggle();
+          togglePlay();
           return;
         }
         if (e.key === "ArrowUp" || e.key === "+" || e.key === "=") {
           e.preventDefault();
-          engine.stepSpeed(1);
+          changeRate(1);
           return;
         }
         if (e.key === "ArrowDown" || e.key === "-") {
           e.preventDefault();
-          engine.stepSpeed(-1);
+          changeRate(-1);
           return;
         }
         if (e.key === "Escape") {
-          engine.pause();
+          if (narrator.supported) narrator.stop();
+          else engine.pause();
           return;
         }
         if (e.key >= "1" && e.key <= "4") {
@@ -254,7 +330,7 @@ export default function Reader({
       window.removeEventListener("keydown", onKey);
       if (chordRef.current.timer) window.clearTimeout(chordRef.current.timer);
     };
-  }, [engine, doHighlight, removeCurrent]);
+  }, [engine, narrator, togglePlay, changeRate, doHighlight, removeCurrent]);
 
   if (status !== "ready") {
     return (
@@ -309,21 +385,39 @@ export default function Reader({
       {/* Faint gold focus line at vertical centre. */}
       <div className={`focus-line ${styles.focusLine}`} />
 
-      {/* Toolbar: play/pause, speed, colour. */}
+      {/* Toolbar: play/pause (narration), voice, speed, colour. */}
       <footer className={styles.toolbar}>
         <button
           className={styles.playBtn}
-          onClick={engine.toggle}
-          aria-label={engine.playing ? "Pause" : "Play"}
+          onClick={togglePlay}
+          aria-label={
+            (narrator.supported ? narrator.playing : engine.playing)
+              ? "Pause"
+              : "Play"
+          }
         >
-          {engine.playing ? "❚❚" : "▶"}
+          {(narrator.supported ? narrator.playing : engine.playing) ? "❚❚" : "▶"}
         </button>
+        {narrator.supported && narrator.voices.length > 1 && (
+          <select
+            className={styles.voiceSelect}
+            value={narrator.voiceId ?? ""}
+            onChange={(e) => narrator.setVoice(e.target.value)}
+            aria-label="Narration voice"
+          >
+            {narrator.voices.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label}
+              </option>
+            ))}
+          </select>
+        )}
         <div className={styles.speed}>
-          <button onClick={() => engine.stepSpeed(-1)} aria-label="Slower">
+          <button onClick={() => changeRate(-1)} aria-label="Slower">
             −
           </button>
-          <span>{formatSpeed(engine.speed)}</span>
-          <button onClick={() => engine.stepSpeed(1)} aria-label="Faster">
+          <span>{formatSpeed(rate)}</span>
+          <button onClick={() => changeRate(1)} aria-label="Faster">
             +
           </button>
         </div>

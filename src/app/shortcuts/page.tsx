@@ -5,10 +5,10 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
   {
     title: "Reading",
     rows: [
-      { keys: ["Space"], label: "Play / pause auto-scroll" },
-      { keys: ["↑", "+"], label: "Read faster" },
-      { keys: ["↓", "−"], label: "Read slower" },
-      { keys: ["Esc"], label: "Stop auto-scroll" },
+      { keys: ["Space"], label: "Play / pause narration" },
+      { keys: ["↑", "+"], label: "Narrate faster" },
+      { keys: ["↓", "−"], label: "Narrate slower" },
+      { keys: ["Esc"], label: "Stop narration" },
     ],
   },
   {

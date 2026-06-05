@@ -27,8 +27,9 @@ export interface ScrollEngine {
 
 type Speed = (typeof SPEEDS)[number];
 
-// Snap an arbitrary multiplier to the nearest supported step.
-function snap(mult: number): Speed {
+// Snap an arbitrary multiplier to the nearest supported step. Exported so the
+// reader can own a single shared rate value across scroll + narration.
+export function snap(mult: number): Speed {
   let best: Speed = SPEEDS[0];
   let bestDist = Infinity;
   for (const s of SPEEDS) {
@@ -39,6 +40,14 @@ function snap(mult: number): Speed {
     }
   }
   return best;
+}
+
+// Step a multiplier to the adjacent supported speed (clamped at the ends).
+// Shared by the scroll engine and the narrator so ↑/↓ feel identical in both.
+export function stepSpeedValue(mult: number, dir: 1 | -1): number {
+  const cur = SPEEDS.indexOf(snap(mult));
+  const next = Math.max(0, Math.min(SPEEDS.length - 1, cur + dir));
+  return SPEEDS[next];
 }
 
 export function useScrollEngine(
