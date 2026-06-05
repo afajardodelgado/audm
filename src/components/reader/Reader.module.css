@@ -165,19 +165,10 @@
   min-width: 4.5rem;
   text-align: center;
 }
-.voiceSelect {
-  max-width: 9rem;
+.engineStatus {
   font-family: var(--font-display);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--ink-soft);
-  background: transparent;
-  border: 1px solid var(--ink-faint);
-  padding: 0.25rem 0.4rem;
-  cursor: pointer;
-}
-.voiceSelect:focus {
-  outline: none;
-  border-color: var(--gold);
 }
 .colors {
   display: flex;

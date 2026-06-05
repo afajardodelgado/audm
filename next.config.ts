@@ -3,9 +3,16 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Efficient single-binary output for Railway.
   output: "standalone",
-  // Keep PDF/EPUB parsers out of the bundler so their worker/native deps
-  // (DOMMatrix polyfills, inlined worker, zip internals) resolve at runtime.
-  serverExternalPackages: ["unpdf", "pdfjs-dist", "@lingo-reader/epub-parser"],
+  // Keep PDF/EPUB parsers and the OCR stack out of the bundler so their
+  // worker/native deps (DOMMatrix polyfills, inlined worker, zip internals,
+  // @napi-rs/canvas .node binary, tesseract.js WASM) resolve at runtime.
+  serverExternalPackages: [
+    "unpdf",
+    "pdfjs-dist",
+    "@lingo-reader/epub-parser",
+    "tesseract.js",
+    "@napi-rs/canvas",
+  ],
   reactCompiler: true,
   experimental: {
     // The proxy (proxy.ts) makes Next buffer request bodies, capped at 10MB by
@@ -13,6 +20,21 @@ const nextConfig: NextConfig = {
     // it to match the upload route's own MAX_BYTES (80MB). /api/upload is also
     // excluded from the proxy matcher below, so this is belt-and-suspenders.
     proxyClientMaxBodySize: "80mb",
+  },
+  // Cross-origin isolation on the reader route enables SharedArrayBuffer, which
+  // the in-browser Kokoro neural voice needs for its threaded WASM fallback
+  // (the WebGPU path doesn't strictly require it, but the fallback does). Scoped
+  // to /read/* to limit the blast radius of require-corp on the rest of the app.
+  async headers() {
+    return [
+      {
+        source: "/read/:path*",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Embedder-Policy", value: "require-corp" },
+        ],
+      },
+    ];
   },
 };
 

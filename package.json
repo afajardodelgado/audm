@@ -15,6 +15,8 @@
     "@fontsource-variable/newsreader": "^5.2.10",
     "@fontsource-variable/source-serif-4": "^5.2.9",
     "@lingo-reader/epub-parser": "^0.4.6",
+    "@mozilla/readability": "^0.6.0",
+    "@napi-rs/canvas": "^0.1.100",
     "@prisma/adapter-better-sqlite3": "^7.8.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
@@ -22,9 +24,12 @@
     "@supabase/supabase-js": "^2.107.0",
     "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
+    "kokoro-js": "^1.2.1",
+    "linkedom": "^0.18.12",
     "next": "16.2.7",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "tesseract.js": "^7.0.0",
     "unpdf": "^1.6.2"
   },
   "devDependencies": {

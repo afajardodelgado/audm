@@ -12,7 +12,7 @@ export function storageRoot(): string {
 export function filePathFor(
   userId: string,
   documentId: string,
-  sourceType: "pdf" | "epub"
+  sourceType: "pdf" | "epub" | "text" | "web"
 ): string {
   return path.join(storageRoot(), userId, `${documentId}.${sourceType}`);
 }

@@ -1,10 +1,8 @@
 // The narrator abstraction. The reader talks ONLY to NarratorEngine, so the
-// concrete speech backend is swappable. Today the only implementation is
-// WebSpeechNarrator (window.speechSynthesis). A future KokoroNarrator (neural,
-// in-browser via WebGPU/WASM — see the README in WebSpeechNarrator.ts) would
-// implement this same interface unchanged: same NarrationUnit input, same state
-// shape, emitting currentWordRange from per-word timestamps instead of the Web
-// Speech `onboundary` event.
+// concrete speech backend is swappable. The implementation is KokoroNarrator —
+// a neural text-to-speech engine running 100% in-browser via WebGPU/WASM
+// (kokoro-js, Apache-2.0) — which emits currentWordRange from per-word
+// timestamps. Any future engine implements this same interface unchanged.
 
 /** A word sub-range within the currently-spoken sentence span's text node. */
 export interface WordRange {
@@ -13,12 +11,12 @@ export interface WordRange {
   end: number;
 }
 
-/** A selectable voice for the active engine. */
+/** A selectable voice for the engine. */
 export interface NarratorVoice {
-  id: string; // stable key (voiceURI for Web Speech)
-  label: string; // e.g. "Samantha (en-US)"
+  id: string; // stable key
+  label: string;
   lang: string;
-  isPremium: boolean; // false for Web Speech; true for future neural voices
+  isPremium: boolean;
 }
 
 /** One sentence the narrator can speak, in reading order. */
@@ -26,6 +24,11 @@ export interface NarrationUnit {
   sid: string;
   text: string;
 }
+
+/** Lifecycle of the engine's model. The neural engine downloads/initialises its
+ * model on first use, so it passes through "loading" (with loadProgress 0..1)
+ * before "ready", or "error" on failure. */
+export type ModelStatus = "idle" | "loading" | "ready" | "error";
 
 export interface NarratorState {
   playing: boolean;
@@ -35,10 +38,12 @@ export interface NarratorState {
   voiceId: string | null;
   rate: number; // playback multiplier, mirrors useScrollEngine SPEEDS
   supported: boolean; // engine usable in this browser
+  modelStatus: ModelStatus; // drives the neural-voice loading UI
+  loadProgress: number; // 0..1 model download progress while loading
 }
 
 export interface NarratorEngine {
-  readonly id: "web-speech" | "kokoro";
+  readonly id: "kokoro";
   /** Start speaking. `units` is the full list; cursor starts at fromSid (or 0). */
   play(units: NarrationUnit[], fromSid?: string): void;
   pause(): void;
@@ -49,5 +54,5 @@ export interface NarratorEngine {
   getState(): NarratorState;
   /** Subscribe to state changes; returns an unsubscribe fn. */
   subscribe(cb: (s: NarratorState) => void): () => void;
-  dispose(): void; // remove listeners (voiceschanged etc.)
+  dispose(): void; // tear down audio + abort pending model/synthesis work
 }

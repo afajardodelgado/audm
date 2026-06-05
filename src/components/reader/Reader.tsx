@@ -405,7 +405,7 @@ export default function Reader({
       {/* Faint gold focus line at vertical centre. */}
       <div className={`focus-line ${styles.focusLine}`} />
 
-      {/* Toolbar: play/pause (narration), voice, speed, colour. */}
+      {/* Toolbar: play/pause (narration), speed, colour. */}
       <footer className={styles.toolbar}>
         <button
           className={styles.playBtn}
@@ -418,19 +418,13 @@ export default function Reader({
         >
           {(narrator.supported ? narrator.playing : engine.playing) ? "❚❚" : "▶"}
         </button>
-        {narrator.supported && narrator.voices.length > 1 && (
-          <select
-            className={styles.voiceSelect}
-            value={narrator.voiceId ?? ""}
-            onChange={(e) => narrator.setVoice(e.target.value)}
-            aria-label="Narration voice"
-          >
-            {narrator.voices.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
-              </option>
-            ))}
-          </select>
+        {narrator.modelStatus === "loading" && (
+          <span className={styles.engineStatus}>
+            Loading voice… {Math.round(narrator.loadProgress * 100)}%
+          </span>
+        )}
+        {narrator.modelStatus === "error" && (
+          <span className={styles.engineStatus}>Voice unavailable</span>
         )}
         <div className={styles.speed}>
           <button onClick={() => changeRate(-1)} aria-label="Slower">

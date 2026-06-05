@@ -21,6 +21,8 @@ datasource db {
 enum SourceType {
   pdf
   epub
+  text
+  web
 }
 
 enum DocStatus {
@@ -29,6 +31,7 @@ enum DocStatus {
   ready
   failed
   ocr_needed
+  ocr_running
 }
 
 enum BlockType {

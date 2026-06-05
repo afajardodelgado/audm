@@ -2,14 +2,53 @@ import { prisma } from "@/lib/db";
 import { readStoredFile } from "@/lib/storage";
 import { extractPdf } from "./pdf";
 import { extractEpub } from "./epub";
+import { runOcr } from "./ocr";
 import { splitSentences } from "./segment";
 import type { ExtractResult } from "./types";
-import type { SourceType } from "@/generated/prisma/client";
+import type { Document, SourceType } from "@/generated/prisma/client";
 
 export type { ExtractResult, ExtractedBlock } from "./types";
 
 export async function runExtraction(data: Buffer, sourceType: SourceType): Promise<ExtractResult> {
   return sourceType === "pdf" ? extractPdf(data) : extractEpub(data);
+}
+
+/**
+ * Persist a successful extraction: replace the document's Blocks (in reading
+ * order, each with a sentence count) and flip its status to ready, carrying
+ * over freshly extracted metadata. Shared by the normal extraction path, OCR,
+ * and the text/URL import path.
+ */
+export async function persistResult(
+  documentId: string,
+  doc: Pick<Document, "title" | "author">,
+  result: ExtractResult
+): Promise<void> {
+  await prisma.$transaction([
+    prisma.block.deleteMany({ where: { documentId } }),
+    prisma.block.createMany({
+      data: result.blocks.map((b, index) => ({
+        documentId,
+        index,
+        type: b.type,
+        level: b.level ?? null,
+        text: b.text,
+        sentenceCount: splitSentences(b.text).length,
+      })),
+    }),
+  ]);
+
+  await prisma.document.update({
+    where: { id: documentId },
+    data: {
+      status: "ready",
+      wordCount: result.wordCount,
+      meta: result.meta,
+      // Prefer embedded metadata; keep the upload-derived title otherwise.
+      title: result.title?.trim() || doc.title,
+      author: result.author ?? doc.author,
+    },
+  });
 }
 
 /**
@@ -46,38 +85,56 @@ export async function extractDocument(documentId: string): Promise<void> {
       return;
     }
 
-    // Persist blocks in reading order with a per-block sentence count.
-    await prisma.$transaction([
-      prisma.block.deleteMany({ where: { documentId } }),
-      prisma.block.createMany({
-        data: result.blocks.map((b, index) => ({
-          documentId,
-          index,
-          type: b.type,
-          level: b.level ?? null,
-          text: b.text,
-          sentenceCount: splitSentences(b.text).length,
-        })),
-      }),
-    ]);
-
-    await prisma.document.update({
-      where: { id: documentId },
-      data: {
-        status: "ready",
-        wordCount: result.wordCount,
-        meta: result.meta,
-        // Prefer embedded metadata; keep the upload-derived title otherwise.
-        title: result.title?.trim() || doc.title,
-        author: result.author ?? doc.author,
-      },
-    });
+    await persistResult(documentId, doc, result);
   } catch (err) {
     await prisma.document.update({
       where: { id: documentId },
       data: {
         status: "failed",
         error: err instanceof Error ? err.message : "Extraction failed.",
+      },
+    });
+  }
+}
+
+/**
+ * OCR a scanned PDF (status ocr_needed) and persist its recognized text.
+ * Status flow: ocr_needed -> ocr_running -> ready | failed.
+ * User-initiated and slow (~seconds/page) — run fire-and-forget; the shelf
+ * polls for completion.
+ */
+export async function extractDocumentOcr(documentId: string): Promise<void> {
+  const doc = await prisma.document.findUnique({ where: { id: documentId } });
+  if (!doc) return;
+
+  await prisma.document.update({
+    where: { id: documentId },
+    data: { status: "ocr_running", error: null },
+  });
+
+  try {
+    const data = await readStoredFile(doc.filePath);
+    const numPages =
+      typeof doc.meta === "object" && doc.meta !== null && "numPages" in doc.meta
+        ? Number((doc.meta as { numPages?: number }).numPages) || 0
+        : 0;
+    const result = await runOcr(data, numPages);
+
+    if (!result.blocks.length) {
+      await prisma.document.update({
+        where: { id: documentId },
+        data: { status: "failed", error: "OCR found no readable text." },
+      });
+      return;
+    }
+
+    await persistResult(documentId, doc, result);
+  } catch (err) {
+    await prisma.document.update({
+      where: { id: documentId },
+      data: {
+        status: "failed",
+        error: err instanceof Error ? err.message : "OCR failed.",
       },
     });
   }

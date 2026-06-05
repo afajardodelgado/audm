@@ -5,13 +5,14 @@ export type DocStatus =
   | "extracting"
   | "ready"
   | "failed"
-  | "ocr_needed";
+  | "ocr_needed"
+  | "ocr_running";
 
 export interface DocumentSummary {
   id: string;
   title: string;
   author: string | null;
-  sourceType: "pdf" | "epub";
+  sourceType: "pdf" | "epub" | "text" | "web";
   status: DocStatus;
   wordCount: number;
   createdAt: string;

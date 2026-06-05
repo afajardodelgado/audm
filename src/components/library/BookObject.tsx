@@ -11,18 +11,25 @@ const STATUS_LABEL: Record<DocumentSummary["status"], string> = {
   ready: "",
   failed: "Couldn’t be read",
   ocr_needed: "Scanned — no text layer",
+  ocr_running: "Reading the page…",
 };
 
 export default function BookObject({
   doc,
   onDelete,
+  onRunOcr,
 }: {
   doc: DocumentSummary;
   onDelete: (id: string) => void;
+  onRunOcr: (id: string) => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const isReady = doc.status === "ready";
-  const isBusy = doc.status === "pending" || doc.status === "extracting";
+  const isBusy =
+    doc.status === "pending" ||
+    doc.status === "extracting" ||
+    doc.status === "ocr_running";
+  const canOcr = doc.status === "ocr_needed";
   const minutes = doc.wordCount ? Math.max(1, Math.round(doc.wordCount / 220)) : 0;
 
   const inner = (
@@ -41,6 +48,15 @@ export default function BookObject({
           {isReady && minutes > 0 && <span>{minutes} min read</span>}
           {!isReady && (
             <span className={styles.bookStatus}>{STATUS_LABEL[doc.status]}</span>
+          )}
+          {canOcr && (
+            <button
+              type="button"
+              className={styles.ocrBtn}
+              onClick={() => onRunOcr(doc.id)}
+            >
+              Run OCR
+            </button>
           )}
         </div>
       </div>

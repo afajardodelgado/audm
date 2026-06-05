@@ -64,7 +64,7 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
   };
 }
 
-function htmlToBlocks(html: string): ExtractedBlock[] {
+export function htmlToBlocks(html: string): ExtractedBlock[] {
   const $ = cheerio.load(html);
   $("script, style, nav, header, footer, figure, img, svg").remove();
 
