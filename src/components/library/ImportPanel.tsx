@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import type { DocumentSummary } from "@/lib/types";
+import { postForDocument } from "@/lib/api";
 import styles from "./Shelf.module.css";
 
 type Tab = "text" | "url";
@@ -26,25 +27,16 @@ export default function ImportPanel({
         tab === "text"
           ? { kind: "text" as const, title: title.trim() || undefined, text }
           : { kind: "url" as const, title: title.trim() || undefined, url: url.trim() };
-      const res = await fetch("/api/import", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error ?? "Import failed.");
-        return;
-      }
-      const doc = json.document as {
-        createdAt: string | Date;
-      } & Omit<DocumentSummary, "createdAt">;
-      onUploaded({ ...doc, createdAt: String(doc.createdAt) });
+      onUploaded(
+        await postForDocument("/api/import", JSON.stringify(body), {
+          "content-type": "application/json",
+        })
+      );
       setText("");
       setUrl("");
       setTitle("");
-    } catch {
-      setError("Import failed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Import failed.");
     } finally {
       setBusy(false);
     }

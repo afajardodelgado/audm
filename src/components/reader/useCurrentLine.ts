@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { parseSid } from "@/lib/anchor";
 
 // Detects the sentence span intersecting a thin horizontal band at the centre
 // of the scroller — the "current" reading line. Uses IntersectionObserver with
@@ -44,9 +45,9 @@ export function useCurrentLine(
       if (!best) return;
       const sid = best.dataset.sid ?? null;
       if (!sid) return;
-      const [bi, si] = sid.split(":").map(Number);
+      const { block, sentence } = parseSid(sid);
       setCurrent((prev) =>
-        prev.sid === sid ? prev : { sid, blockIndex: bi, sentenceIndex: si }
+        prev.sid === sid ? prev : { sid, blockIndex: block, sentenceIndex: sentence }
       );
     };
 

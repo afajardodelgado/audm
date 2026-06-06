@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rm } from "node:fs/promises";
 import type { ExtractResult, ExtractedBlock } from "./types";
-import { countWords } from "./segment";
+import { countBlocksWords, normalizeWhitespace } from "./segment";
 import { generateEpubCover } from "./cover";
 
 const BLOCK_TAGS = new Set([
@@ -65,7 +65,7 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
   // Best-effort cleanup of the temp resource dir.
   await rm(resourceDir, { recursive: true, force: true }).catch(() => {});
 
-  const wordCount = blocks.reduce((n, b) => n + countWords(b.text), 0);
+  const wordCount = countBlocksWords(blocks);
 
   return {
     title,
@@ -96,7 +96,7 @@ export function htmlToBlocks(html: string): ExtractedBlock[] {
     const $el = $(el);
     if ($el.children(Array.from(BLOCK_TAGS).join(",")).length > 0) return;
 
-    const text = $el.text().replace(/\s+/g, " ").trim();
+    const text = normalizeWhitespace($el.text());
     if (!text) return;
 
     if (/^h[1-6]$/.test(tag)) {

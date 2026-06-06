@@ -2,7 +2,7 @@ import { getDocumentProxy, renderPageAsImage } from "unpdf";
 import { createWorker } from "tesseract.js";
 import type { ExtractResult } from "./types";
 import { textToBlocks } from "./text";
-import { countWords } from "./segment";
+import { countBlocksWords } from "./segment";
 
 // Rasterize at 2x so small body text survives OCR; higher scales cost time/RAM.
 const RENDER_SCALE = 2;
@@ -48,7 +48,7 @@ export async function runOcr(data: Buffer, numPagesHint: number): Promise<Extrac
   // Join pages with a blank line so textToBlocks() treats page breaks as
   // paragraph boundaries.
   const blocks = textToBlocks(pageTexts.join("\n\n"));
-  const wordCount = blocks.reduce((n, b) => n + countWords(b.text), 0);
+  const wordCount = countBlocksWords(blocks);
 
   return {
     title: "",

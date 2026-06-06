@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { DocumentSummary } from "@/lib/types";
+import { postForDocument } from "@/lib/api";
 import styles from "./Shelf.module.css";
 
 export default function UploadDropzone({
@@ -23,18 +24,9 @@ export default function UploadDropzone({
       try {
         const form = new FormData();
         form.append("file", file);
-        const res = await fetch("/api/upload", { method: "POST", body: form });
-        const json = await res.json();
-        if (!res.ok) {
-          setError(json.error ?? "Upload failed.");
-          return;
-        }
-        const doc = json.document as {
-          createdAt: string | Date;
-        } & Omit<DocumentSummary, "createdAt">;
-        onUploaded({ ...doc, createdAt: String(doc.createdAt) });
-      } catch {
-        setError("Upload failed.");
+        onUploaded(await postForDocument("/api/upload", form));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Upload failed.");
       } finally {
         setBusy(false);
       }

@@ -1,5 +1,5 @@
 import type { ExtractResult, ExtractedBlock } from "./types";
-import { countWords } from "./segment";
+import { countBlocksWords, normalizeWhitespace } from "./segment";
 
 /**
  * Split raw plain text into paragraph blocks. Blank lines separate paragraphs;
@@ -10,7 +10,7 @@ export function textToBlocks(text: string): ExtractedBlock[] {
   return text
     .replace(/\r\n?/g, "\n")
     .split(/\n\s*\n/)
-    .map((para) => para.replace(/\s+/g, " ").trim())
+    .map((para) => normalizeWhitespace(para))
     .filter((para) => para.length > 0)
     .map((para): ExtractedBlock => ({ type: "paragraph", text: para }));
 }
@@ -18,7 +18,7 @@ export function textToBlocks(text: string): ExtractedBlock[] {
 /** Build an ExtractResult from pasted plain text. */
 export function textToResult(text: string, title: string): ExtractResult {
   const blocks = textToBlocks(text);
-  const wordCount = blocks.reduce((n, b) => n + countWords(b.text), 0);
+  const wordCount = countBlocksWords(blocks);
   return {
     title: title.trim(),
     blocks,

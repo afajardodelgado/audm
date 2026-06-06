@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, LOCAL_USER_ID } from "@/lib/db";
+import { LOCAL_USER_ID, findOwnedDocument } from "@/lib/db";
 import { coverPathFor, readStoredFile } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -11,10 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const doc = await prisma.document.findFirst({
-    where: { id, userId: LOCAL_USER_ID },
-    select: { hasCover: true },
-  });
+  const doc = await findOwnedDocument(id, { select: { hasCover: true } });
   if (!doc?.hasCover) {
     return NextResponse.json({ error: "No cover." }, { status: 404 });
   }

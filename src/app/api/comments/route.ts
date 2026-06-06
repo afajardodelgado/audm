@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, LOCAL_USER_ID, ensureLocalUser } from "@/lib/db";
+import { prisma, ensureLocalUser, findOwnedHighlight } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -9,9 +9,7 @@ export async function POST(req: NextRequest) {
   if (!highlightId || typeof body !== "string" || !body.trim()) {
     return NextResponse.json({ error: "highlightId and body required." }, { status: 400 });
   }
-  const hl = await prisma.highlight.findFirst({
-    where: { id: highlightId, userId: LOCAL_USER_ID },
-  });
+  const hl = await findOwnedHighlight(highlightId);
   if (!hl) {
     return NextResponse.json({ error: "Highlight not found." }, { status: 404 });
   }

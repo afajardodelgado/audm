@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, LOCAL_USER_ID } from "@/lib/db";
+import { prisma, findOwnedComment } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -13,9 +13,7 @@ export async function PATCH(
   if (typeof body !== "string" || !body.trim()) {
     return NextResponse.json({ error: "body required." }, { status: 400 });
   }
-  const existing = await prisma.comment.findFirst({
-    where: { id, userId: LOCAL_USER_ID },
-  });
+  const existing = await findOwnedComment(id);
   if (!existing) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
@@ -31,9 +29,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const existing = await prisma.comment.findFirst({
-    where: { id, userId: LOCAL_USER_ID },
-  });
+  const existing = await findOwnedComment(id);
   if (!existing) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }

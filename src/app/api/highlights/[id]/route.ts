@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, LOCAL_USER_ID } from "@/lib/db";
+import { prisma, findOwnedHighlight } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -10,9 +10,7 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const { color } = (await req.json()) ?? {};
-  const existing = await prisma.highlight.findFirst({
-    where: { id, userId: LOCAL_USER_ID },
-  });
+  const existing = await findOwnedHighlight(id);
   if (!existing) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
@@ -30,9 +28,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const existing = await prisma.highlight.findFirst({
-    where: { id, userId: LOCAL_USER_ID },
-  });
+  const existing = await findOwnedHighlight(id);
   if (!existing) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, LOCAL_USER_ID } from "@/lib/db";
+import { findOwnedDocument } from "@/lib/db";
 import { extractDocumentOcr } from "@/lib/extract";
 
 export const runtime = "nodejs";
@@ -19,9 +19,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const doc = await prisma.document.findFirst({
-    where: { id, userId: LOCAL_USER_ID },
-  });
+  const doc = await findOwnedDocument(id);
   if (!doc) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }

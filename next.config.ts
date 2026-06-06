@@ -17,8 +17,9 @@ const nextConfig: NextConfig = {
   experimental: {
     // The proxy (proxy.ts) makes Next buffer request bodies, capped at 10MB by
     // default — which truncated large uploads and broke multipart parsing. Raise
-    // it to match the upload route's own MAX_BYTES (80MB). /api/upload is also
-    // excluded from the proxy matcher below, so this is belt-and-suspenders.
+    // it to match the upload route's own limit. Keep this in sync with
+    // MAX_UPLOAD_BYTES in src/lib/constants.ts (80MB) — config is evaluated
+    // before TS modules load, so it can't import the constant directly.
     proxyClientMaxBodySize: "80mb",
   },
   // Cross-origin isolation on the reader route enables SharedArrayBuffer, which

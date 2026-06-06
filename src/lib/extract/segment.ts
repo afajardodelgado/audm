@@ -3,6 +3,8 @@
 // each sentence in a span with a stable data-sid. Running the SAME segmenter on
 // both sides guarantees identical boundaries, so anchors stay valid.
 
+import type { ExtractedBlock } from "./types";
+
 const sentenceSeg = new Intl.Segmenter("en", { granularity: "sentence" });
 const wordSeg = new Intl.Segmenter("en", { granularity: "word" });
 
@@ -69,4 +71,15 @@ export function countWords(text: string): number {
     if (seg.isWordLike) n++;
   }
   return n;
+}
+
+/** Total word count across a set of extracted blocks. */
+export function countBlocksWords(blocks: ExtractedBlock[]): number {
+  return blocks.reduce((n, b) => n + countWords(b.text), 0);
+}
+
+/** Collapse runs of whitespace to single spaces and trim the ends. The single
+ *  canonical normalizer used by every extractor so block text is consistent. */
+export function normalizeWhitespace(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }

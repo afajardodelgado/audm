@@ -3,7 +3,7 @@ import { parseHTML } from "linkedom";
 import type { ExtractResult } from "./types";
 import { htmlToBlocks } from "./epub";
 import { textToResult } from "./text";
-import { countWords } from "./segment";
+import { countBlocksWords } from "./segment";
 
 /**
  * Fetch a web page and extract its readable article as paragraph blocks.
@@ -43,7 +43,7 @@ export async function urlToResult(
   if (article?.content) {
     const blocks = htmlToBlocks(article.content);
     if (blocks.length) {
-      const wordCount = blocks.reduce((n, b) => n + countWords(b.text), 0);
+      const wordCount = countBlocksWords(blocks);
       const sourceText = blocks.map((b) => b.text).join("\n\n");
       return {
         result: {

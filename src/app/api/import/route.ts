@@ -5,12 +5,11 @@ import { filePathFor, saveFile } from "@/lib/storage";
 import { persistResult } from "@/lib/extract";
 import { textToResult } from "@/lib/extract/text";
 import { urlToResult } from "@/lib/extract/url";
+import { MAX_TEXT_CHARS } from "@/lib/constants";
 import type { ExtractResult } from "@/lib/extract/types";
 import type { SourceType } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
-
-const MAX_TEXT_CHARS = 2_000_000; // ~2MB of pasted text
 
 interface ImportBody {
   kind?: "text" | "url";

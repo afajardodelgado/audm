@@ -3,11 +3,10 @@ import { createHash } from "node:crypto";
 import { prisma, ensureLocalUser } from "@/lib/db";
 import { filePathFor, saveFile } from "@/lib/storage";
 import { extractDocument } from "@/lib/extract";
+import { MAX_UPLOAD_BYTES } from "@/lib/constants";
 import type { SourceType } from "@/generated/prisma/client";
 
 export const runtime = "nodejs";
-
-const MAX_BYTES = 80 * 1024 * 1024; // 80 MB
 
 function detectType(name: string, mime: string): SourceType | null {
   const lower = name.toLowerCase();
@@ -31,7 +30,7 @@ export async function POST(req: NextRequest) {
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "No file provided." }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > MAX_UPLOAD_BYTES) {
     return NextResponse.json({ error: "File too large (max 80 MB)." }, { status: 413 });
   }
 

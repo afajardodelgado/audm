@@ -13,6 +13,12 @@ export async function runExtraction(data: Buffer, sourceType: SourceType): Promi
   return sourceType === "pdf" ? extractPdf(data) : extractEpub(data);
 }
 
+// Background extraction operates on a known document id (not a user request), so
+// it looks up by primary key without the ownership scoping the API routes use.
+function loadDocument(documentId: string) {
+  return prisma.document.findUnique({ where: { id: documentId } });
+}
+
 /**
  * Persist a successful extraction: replace the document's Blocks (in reading
  * order, each with a sentence count) and flip its status to ready, carrying
@@ -69,7 +75,7 @@ export async function persistResult(
  * Designed to be fire-and-forget after upload (errors are caught + recorded).
  */
 export async function extractDocument(documentId: string): Promise<void> {
-  const doc = await prisma.document.findUnique({ where: { id: documentId } });
+  const doc = await loadDocument(documentId);
   if (!doc) return;
 
   await prisma.document.update({
@@ -116,7 +122,7 @@ export async function extractDocument(documentId: string): Promise<void> {
  * polls for completion.
  */
 export async function extractDocumentOcr(documentId: string): Promise<void> {
-  const doc = await prisma.document.findUnique({ where: { id: documentId } });
+  const doc = await loadDocument(documentId);
   if (!doc) return;
 
   await prisma.document.update({

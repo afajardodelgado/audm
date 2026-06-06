@@ -9,7 +9,8 @@ import { useCurrentLine } from "./useCurrentLine";
 import { useHighlights } from "./useHighlights";
 import { useNarrator } from "./useNarrator";
 import type { NarrationUnit } from "@/lib/narrator/types";
-import { rangeForTarget, type HighlightTarget, HL_COLORS } from "@/lib/anchor";
+import { rangeForTarget, parseSid, type HighlightTarget, HL_COLORS } from "@/lib/anchor";
+import { CHORD_TIMEOUT_MS, PROGRESS_SAVE_THROTTLE_MS } from "@/lib/constants";
 import ProgressRail from "./ProgressRail";
 import CommentPopover from "./CommentPopover";
 import CommentOverlay from "./CommentOverlay";
@@ -24,8 +25,6 @@ const HIGHLIGHT_STYLE = `
 ::highlight(hl-green){background-color:var(--hl-green);color:var(--hl-green-ink);}
 ::highlight(tts-word){background-color:var(--gold);color:var(--paper);}
 `;
-
-const CHORD_TIMEOUT = 1100; // ms to complete a chord before it resets
 
 // "1.5x", "1x" — trims a trailing ".0" so whole multipliers read cleanly.
 function formatSpeed(mult: number): string {
@@ -81,11 +80,11 @@ export default function Reader({
     }
     const total = acc || 1;
     return (sid: string): number => {
-      const [bi, si] = sid.split(":").map(Number);
-      if (!Number.isFinite(bi) || !Number.isFinite(si)) return 0;
-      const base = offsets[bi] ?? 0;
+      const { block, sentence } = parseSid(sid);
+      if (!Number.isFinite(block) || !Number.isFinite(sentence)) return 0;
+      const base = offsets[block] ?? 0;
       // +1 so reaching the last sentence reads as 100%, not (n-1)/n.
-      return Math.min(1, (base + si + 1) / total);
+      return Math.min(1, (base + sentence + 1) / total);
     };
   }, [blocks]);
 
@@ -185,7 +184,7 @@ export default function Reader({
       const { frac, sid } = furthestRef.current;
       if (!sid) return;
       const now = Date.now();
-      if (!immediate && now - lastSaveRef.current < 5000) return;
+      if (!immediate && now - lastSaveRef.current < PROGRESS_SAVE_THROTTLE_MS) return;
       lastSaveRef.current = now;
       const body = JSON.stringify({ lastReadSid: sid, readingProgress: frac });
       if (immediate && navigator.sendBeacon) {
@@ -297,16 +296,14 @@ export default function Reader({
 
   const removeCurrent = useCallback(() => {
     if (!current.sid) return;
-    // Find a highlight that contains the current sentence and remove it.
+    const cur = parseSid(current.sid);
+    // Find a highlight whose sentence range contains the current sentence.
     const containing = hl.highlights.find((h) => {
-      const [hs] = h.startSid.split(":").map(Number);
-      const [he] = h.endSid.split(":").map(Number);
-      const [cs, css] = current.sid!.split(":").map(Number);
-      const startN = Number(h.startSid.split(":")[1]);
-      const endN = Number(h.endSid.split(":")[1]);
-      if (cs < hs || cs > he) return false;
-      if (cs === hs && css < startN) return false;
-      if (cs === he && css > endN) return false;
+      const start = parseSid(h.startSid);
+      const end = parseSid(h.endSid);
+      if (cur.block < start.block || cur.block > end.block) return false;
+      if (cur.block === start.block && cur.sentence < start.sentence) return false;
+      if (cur.block === end.block && cur.sentence > end.sentence) return false;
       return true;
     });
     if (containing) void hl.remove(containing.id);
@@ -330,7 +327,7 @@ export default function Reader({
 
     const armReset = () => {
       if (chordRef.current.timer) window.clearTimeout(chordRef.current.timer);
-      chordRef.current.timer = window.setTimeout(resetChord, CHORD_TIMEOUT);
+      chordRef.current.timer = window.setTimeout(resetChord, CHORD_TIMEOUT_MS);
     };
 
     const onKey = (e: KeyboardEvent) => {

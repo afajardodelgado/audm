@@ -1,4 +1,4 @@
-import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaClient, type Prisma } from "@/generated/prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -36,4 +36,40 @@ export async function ensureLocalUser() {
     create: { id: LOCAL_USER_ID },
   });
   return LOCAL_USER_ID;
+}
+
+// Ownership-scoped lookups. Every read of a user-owned row must filter by
+// LOCAL_USER_ID (today's single owner; the current user's id once auth lands) —
+// these wrap that scoping so a route can't accidentally omit it. They return the
+// row or null; the caller chooses its own 404 response. The optional `select` /
+// `include` are forwarded to Prisma so callers keep their existing projections.
+
+/** Find a document owned by the local user, or null. */
+export function findOwnedDocument<
+  T extends Omit<Prisma.DocumentFindFirstArgs, "where">,
+>(id: string, args?: T) {
+  return prisma.document.findFirst({
+    ...args,
+    where: { id, userId: LOCAL_USER_ID },
+  } as Prisma.DocumentFindFirstArgs) as Promise<Prisma.DocumentGetPayload<T> | null>;
+}
+
+/** Find a highlight owned by the local user, or null. */
+export function findOwnedHighlight<
+  T extends Omit<Prisma.HighlightFindFirstArgs, "where">,
+>(id: string, args?: T) {
+  return prisma.highlight.findFirst({
+    ...args,
+    where: { id, userId: LOCAL_USER_ID },
+  } as Prisma.HighlightFindFirstArgs) as Promise<Prisma.HighlightGetPayload<T> | null>;
+}
+
+/** Find a comment owned by the local user, or null. */
+export function findOwnedComment<
+  T extends Omit<Prisma.CommentFindFirstArgs, "where">,
+>(id: string, args?: T) {
+  return prisma.comment.findFirst({
+    ...args,
+    where: { id, userId: LOCAL_USER_ID },
+  } as Prisma.CommentFindFirstArgs) as Promise<Prisma.CommentGetPayload<T> | null>;
 }

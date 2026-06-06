@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, LOCAL_USER_ID } from "@/lib/db";
+import { prisma, LOCAL_USER_ID, findOwnedDocument } from "@/lib/db";
 import { deleteStoredFile, coverPathFor } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -10,8 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const document = await prisma.document.findFirst({
-    where: { id, userId: LOCAL_USER_ID },
+  const document = await findOwnedDocument(id, {
     include: { blocks: { orderBy: { index: "asc" } } },
   });
   if (!document) {
@@ -34,8 +33,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid body." }, { status: 400 });
   }
 
-  const doc = await prisma.document.findFirst({
-    where: { id, userId: LOCAL_USER_ID },
+  const doc = await findOwnedDocument(id, {
     select: { readingProgress: true },
   });
   if (!doc) {
@@ -64,9 +62,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const doc = await prisma.document.findFirst({
-    where: { id, userId: LOCAL_USER_ID },
-  });
+  const doc = await findOwnedDocument(id);
   if (!doc) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }

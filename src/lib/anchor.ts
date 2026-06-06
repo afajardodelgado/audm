@@ -18,6 +18,13 @@ export interface HighlightAnchor {
 export const HL_COLORS = ["yellow", "rose", "blue", "green"] as const;
 export type HlColor = (typeof HL_COLORS)[number];
 
+/** Parse a sentence id ("blockIndex:sentenceIndex") into its two numbers.
+ *  NaN for a malformed half — callers guard with Number.isFinite where needed. */
+export function parseSid(sid: string): { block: number; sentence: number } {
+  const [block, sentence] = sid.split(":").map(Number);
+  return { block, sentence };
+}
+
 /** All sentence span elements for a document, in reading order. */
 export function sentenceSpans(container: HTMLElement): HTMLElement[] {
   return Array.from(
@@ -102,11 +109,11 @@ export function rangeForTarget(
   const idx = order.indexOf(currentSid);
   if (idx < 0) return null;
 
-  const [curBlock] = currentSid.split(":").map(Number);
+  const curBlock = parseSid(currentSid).block;
 
   const startOfBlock = (blockIndex: number): number => {
     // first span whose block index === blockIndex
-    return order.findIndex((sid) => Number(sid.split(":")[0]) === blockIndex);
+    return order.findIndex((sid) => parseSid(sid).block === blockIndex);
   };
 
   let startIdx = idx;
@@ -122,7 +129,7 @@ export function rangeForTarget(
       endIdx = idx;
       while (
         endIdx + 1 < order.length &&
-        Number(order[endIdx + 1].split(":")[0]) === curBlock
+        parseSid(order[endIdx + 1]).block === curBlock
       )
         endIdx++;
       break;
@@ -138,7 +145,7 @@ export function rangeForTarget(
       endIdx = idx;
       while (
         endIdx + 1 < order.length &&
-        Number(order[endIdx + 1].split(":")[0]) === curBlock
+        parseSid(order[endIdx + 1]).block === curBlock
       )
         endIdx++;
       break;

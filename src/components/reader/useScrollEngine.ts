@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BASE_WPM } from "@/lib/constants";
 
 // Continuous auto-scroll driven by a single rAF loop. Speed is expressed as a
 // playback multiplier (0.75x, 1x, 1.25x, …) where 1x is a comfortable baseline
@@ -7,9 +8,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // identically on 60Hz and 120Hz/ProMotion displays. All live state is in refs to
 // avoid stale closures; React state mirrors only what the UI needs to display.
 
-// 1x baseline reading pace, in words per minute. The published API is the
-// multiplier; this constant just anchors what "1x" feels like.
-const BASE_WPM = 260;
 export const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3] as const;
 const DEFAULT_SPEED = 1;
 const MAX_DELTA_MS = 50; // clamp background-tab gaps so resume doesn't jump
