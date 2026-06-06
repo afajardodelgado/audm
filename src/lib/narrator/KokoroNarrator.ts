@@ -47,6 +47,29 @@ interface SynthResult {
 
 // ---- module-level model singleton (survives reader remounts) ---------------
 
+// onnxruntime-web's native (C++/WASM) layer prints two benign perf warnings to
+// stderr at session init — "VerifyEachNodeIsAssignedToAnEp" (ORT pins shape ops
+// to CPU on purpose). They aren't errors, but Next's dev overlay surfaces stderr
+// as "Console Error". kokoro-js's from_pretrained doesn't expose ORT session
+// options (no logSeverityLevel hook), and the JS-side env.logLevel doesn't gate
+// the native logger — so we filter just these exact lines from the console. The
+// patch is installed once and passes everything else through unchanged.
+let ortFilterInstalled = false;
+function silenceOrtNodeWarnings() {
+  if (ortFilterInstalled || typeof console === "undefined") return;
+  ortFilterInstalled = true;
+  const isOrtNoise = (args: unknown[]) =>
+    typeof args[0] === "string" &&
+    args[0].includes("VerifyEachNodeIsAssignedToAnEp");
+  for (const level of ["warn", "error"] as const) {
+    const orig = console[level].bind(console);
+    console[level] = (...args: unknown[]) => {
+      if (isOrtNoise(args)) return;
+      orig(...args);
+    };
+  }
+}
+
 let modelPromise: Promise<KokoroTTS> | null = null;
 
 async function loadModel(
@@ -54,6 +77,7 @@ async function loadModel(
 ): Promise<KokoroTTS> {
   if (modelPromise) return modelPromise;
   modelPromise = (async () => {
+    silenceOrtNodeWarnings();
     const { KokoroTTS } = await import("kokoro-js");
     // Prefer WebGPU when available; fall back to threaded WASM otherwise.
     let device: "webgpu" | "wasm" = "wasm";
