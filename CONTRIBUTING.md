@@ -22,10 +22,13 @@ npm run dev                # Next.js dev server on http://localhost:3000
 
 ### First-run database
 
-`dev.db` is gitignored. If you don't have one, create the schema from the migrations:
+`dev.db` is gitignored. Create the local SQLite schema with `db push` (the
+committed migrations are Postgres-dialect for production — see
+[Database: SQLite ↔ Postgres](#database-sqlite--postgres) — so local SQLite
+syncs straight from the schema rather than replaying them):
 
 ```bash
-npx prisma migrate dev     # applies migrations, regenerates the client
+npm run db:push     # syncs prisma/schema.prisma into dev.db, regenerates the client
 ```
 
 There is no seed data; the shelf starts empty and you populate it by importing.
@@ -63,10 +66,12 @@ Two tools beyond the static checks:
 
 ## Database: SQLite ↔ Postgres
 
-The schema is written for SQLite (`provider = "sqlite"`) and kept portable (no Postgres-only types). The provider is switched by **environment + a build step**, not by editing the schema by hand:
+The schema is written for SQLite (`provider = "sqlite"`) locally and kept portable (no Postgres-only types). The provider is switched by **environment + a build step**, not by editing the schema by hand:
 
 - `scripts/set-db-provider.mjs` reads `DATABASE_PROVIDER` (`sqlite` | `postgresql`) and rewrites the single `provider = "..."` line in `prisma/schema.prisma`.
 - `src/lib/db.ts` picks the matching Prisma driver adapter at runtime from the same env var.
+
+**Migrations are Postgres-dialect (production is their target).** A single schema can't share one migration history across two SQL dialects — Prisma emits dialect-specific DDL — so the committed `prisma/migrations` are Postgres (`migration_lock.toml` → `postgresql`), applied in production by `prisma migrate deploy`. Local SQLite dev therefore does **not** replay migrations; it uses `npm run db:push` to sync the schema directly into `dev.db`.
 
 Relevant `package.json` scripts:
 
@@ -79,7 +84,20 @@ Relevant `package.json` scripts:
 | `npm run start:railway` | `db:provider` → `prisma migrate deploy` → `next start` |
 | `npm run lint` | `eslint` |
 
-When changing the schema: edit `prisma/schema.prisma`, then `npx prisma migrate dev --name <change>` locally (SQLite). Migrations are applied in production by `prisma migrate deploy` (run via `start:railway`).
+When changing the schema:
+
+1. Edit `prisma/schema.prisma`.
+2. Locally, run `npm run db:push` to sync the change into `dev.db` (SQLite).
+3. Generate the matching **Postgres** migration for production:
+   ```bash
+   DATABASE_PROVIDER=postgresql node scripts/set-db-provider.mjs
+   npx prisma migrate diff \
+     --from-migrations prisma/migrations \
+     --to-schema prisma/schema.prisma \
+     --script > prisma/migrations/$(date +%Y%m%d%H%M%S)_<change>/migration.sql
+   node scripts/set-db-provider.mjs   # restore sqlite locally
+   ```
+   (Create the timestamped folder first.) Commit the new migration. It's applied in production by `prisma migrate deploy` (run via `start:railway`).
 
 ## Deployment (Railway)
 

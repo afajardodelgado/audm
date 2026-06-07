@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "db:provider": "node scripts/set-db-provider.mjs",
+    "db:push": "prisma db push",
     "build": "npm run db:provider && prisma generate && next build",
     "start": "next start",
     "start:railway": "npm run db:provider && prisma migrate deploy && next start",
