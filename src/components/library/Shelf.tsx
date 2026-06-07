@@ -1,31 +1,52 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { DocumentSummary } from "@/lib/types";
-import BookObject from "./BookObject";
+import FlipCard from "./FlipCard";
+import RegisterRow from "./RegisterRow";
 import UploadDropzone from "./UploadDropzone";
 import ImportPanel from "./ImportPanel";
-import ContinueReading, { pickContinue } from "./ContinueReading";
-import { useShelfScroll } from "./useShelfScroll";
+import LibraryToolbar from "./LibraryToolbar";
+import {
+  filterDocs,
+  sortDocs,
+  DEFAULT_FILTERS,
+  type StatusFilter,
+  type TypeFilter,
+  type SortKey,
+} from "./filterShelf";
 import styles from "./Shelf.module.css";
 
-// Bound formats stand on the shelf; loose text/web go in the drawer.
-const isBound = (d: DocumentSummary) =>
-  d.sourceType === "pdf" || d.sourceType === "epub";
+type AddKind = "upload" | "note" | "url";
+
+const ADD_TITLE: Record<AddKind, string> = {
+  upload: "Upload a file",
+  note: "Create a note",
+  url: "Import from a link",
+};
 
 export default function Shelf({ initial }: { initial: DocumentSummary[] }) {
   const [docs, setDocs] = useState<DocumentSummary[]>(initial);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const {
-    ref: scrollerRef,
-    dragging,
-    canPrev,
-    canNext,
-    scrollPrev,
-    scrollNext,
-    onClickCapture,
-  } = useShelfScroll();
+
+  // ---- Search / filter / sort / view (all client-side over `docs`) ----
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [sort, setSort] = useState<SortKey>("added-desc");
+  const [view, setView] = useState<"grid" | "list">("grid");
+  const [addOpen, setAddOpen] = useState<AddKind | null>(null);
+
+  const clearFilters = useCallback(() => {
+    setQuery(DEFAULT_FILTERS.query);
+    setStatusFilter(DEFAULT_FILTERS.statusFilter);
+    setTypeFilter(DEFAULT_FILTERS.typeFilter);
+  }, []);
+
+  const openAdd = useCallback((which: AddKind) => {
+    setAddOpen((cur) => (cur === which ? null : which));
+  }, []);
 
   const refresh = useCallback(async () => {
     const res = await fetch("/api/documents", { cache: "no-store" });
@@ -82,140 +103,126 @@ export default function Shelf({ initial }: { initial: DocumentSummary[] }) {
     [refresh]
   );
 
-  const books = docs.filter(isBound);
-  const drawer = docs.filter((d) => !isBound(d));
+  // Narrowing runs over the FULL list; the polling trigger above deliberately
+  // stays on `docs` so a filter can never hide a still-processing doc and stop
+  // polling it.
+  const visible = useMemo(
+    () => sortDocs(filterDocs(docs, { query, statusFilter, typeFilter }), sort),
+    [docs, query, statusFilter, typeFilter, sort]
+  );
   const empty = docs.length === 0;
-  const continueDoc = pickContinue(docs);
+  const noMatches = !empty && visible.length === 0;
 
   return (
-    <main className={`theme-shelf ${styles.shelf}`}>
+    <main className={`theme-paper ${styles.shelf}`}>
       <header className={styles.masthead}>
         <div>
           <p className={styles.kicker}>A place to read</p>
           <div className={`wordmark ${styles.wordmark}`}>Audm</div>
           <p className={`byline ${styles.tagline}`}>
-            Bound work stands on the shelf. Loose documents lie in the drawer.
-            Open anything to read it in one quiet column.
+            Your whole library, one card each. Open anything to read it in one
+            quiet column.
           </p>
         </div>
         <nav className={styles.nav}>
           <Link href="/shortcuts">Shortcuts</Link>
-          <Link href="/login">Sign in</Link>
         </nav>
       </header>
+
+      {/* The working toolbar — only meaningful once there's something to
+          search, filter or sort. The empty state has its own add affordances. */}
+      {!empty && (
+        <>
+          <LibraryToolbar
+            query={query}
+            onQuery={setQuery}
+            statusFilter={statusFilter}
+            onStatus={setStatusFilter}
+            typeFilter={typeFilter}
+            onType={setTypeFilter}
+            sort={sort}
+            onSort={setSort}
+            view={view}
+            onView={setView}
+            onOpenAdd={openAdd}
+            addOpen={addOpen}
+          />
+          {addOpen && (
+            <div className={styles.addDrawer}>
+              <div className={styles.addDrawerHead}>
+                <span className={styles.addDrawerTitle}>
+                  {ADD_TITLE[addOpen]}
+                </span>
+                <button
+                  type="button"
+                  className={styles.addDrawerClose}
+                  aria-label="Close"
+                  onClick={() => setAddOpen(null)}
+                >
+                  ×
+                </button>
+              </div>
+              {addOpen === "upload" ? (
+                <UploadDropzone onUploaded={handleUploaded} variant="row" />
+              ) : (
+                <ImportPanel
+                  onUploaded={handleUploaded}
+                  initialTab={addOpen === "url" ? "url" : "text"}
+                  hideTabs
+                />
+              )}
+            </div>
+          )}
+        </>
+      )}
 
       <section className={styles.stage}>
         {empty ? (
           <div className={styles.empty}>
-            <p className={styles.emptyLead}>The shelf is empty.</p>
+            <p className={styles.emptyLead}>Your library is empty.</p>
             <p className={styles.emptyHint}>
-              Bring a book. A PDF or an EPUB — it will reflow into one quiet
-              column, yours to read slowly. Or paste text or a link to file it
-              in the drawer.
+              Bring something to read. A PDF or an EPUB, a pasted note, or a link
+              — it will reflow into one quiet column, yours to read slowly.
             </p>
             <UploadDropzone onUploaded={handleUploaded} variant="empty" />
             <ImportPanel onUploaded={handleUploaded} />
           </div>
+        ) : noMatches ? (
+          <div className={styles.noMatch}>
+            <p className={styles.emptyLead}>Nothing matches.</p>
+            <p className={styles.emptyHint}>
+              Try a different word, or widen the Status and Type filters.
+            </p>
+            <button
+              type="button"
+              className={styles.clearFilters}
+              onClick={clearFilters}
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : view === "list" ? (
+          <div className={styles.register} role="list">
+            {visible.map((doc) => (
+              <RegisterRow
+                key={doc.id}
+                doc={doc}
+                onDelete={handleDelete}
+                onRunOcr={handleRunOcr}
+              />
+            ))}
+          </div>
         ) : (
-          <>
-            {/* ---- Continue reading ---- */}
-            {continueDoc && <ContinueReading doc={continueDoc} />}
-
-            {/* ---- On the Shelf ---- */}
-            <div className={styles.secHead}>
-              <h2>On the Shelf</h2>
-              <span className={styles.secMeta}>
-                {books.length === 0
-                  ? "empty"
-                  : `${books.length} ${
-                      books.length === 1 ? "volume" : "volumes"
-                    } — scroll →`}
-              </span>
-            </div>
-            {books.length === 0 ? (
-              <p className={styles.sectionEmpty}>
-                No bound volumes yet — upload a PDF or EPUB.
-              </p>
-            ) : (
-              <div className={styles.shelfFrame}>
-                <button
-                  className={`${styles.navBtn} ${styles.navPrev}`}
-                  aria-label="Scroll left"
-                  onClick={scrollPrev}
-                  disabled={!canPrev}
-                >
-                  ‹
-                </button>
-                <div
-                  ref={scrollerRef}
-                  className={`${styles.scroller} ${
-                    dragging ? styles.dragging : ""
-                  }`}
-                  role="list"
-                >
-                  {books.map((doc) => (
-                    <BookObject
-                      key={doc.id}
-                      doc={doc}
-                      variant="book"
-                      onDelete={handleDelete}
-                      onRunOcr={handleRunOcr}
-                      onClickCapture={onClickCapture}
-                    />
-                  ))}
-                </div>
-                <button
-                  className={`${styles.navBtn} ${styles.navNext}`}
-                  aria-label="Scroll right"
-                  onClick={scrollNext}
-                  disabled={!canNext}
-                >
-                  ›
-                </button>
-              </div>
-            )}
-
-            {/* ---- In the Drawer ---- */}
-            <div className={styles.secHead}>
-              <h2>In the Drawer</h2>
-              <span className={styles.secMeta}>
-                {drawer.length === 0
-                  ? "empty"
-                  : `${drawer.length} ${
-                      drawer.length === 1 ? "file" : "files"
-                    }`}
-              </span>
-            </div>
-            {drawer.length === 0 ? (
-              <p className={styles.sectionEmpty}>
-                No loose documents — paste text or import a link below.
-              </p>
-            ) : (
-              <div className={styles.grid} role="list">
-                {drawer.map((doc) => (
-                  <BookObject
-                    key={doc.id}
-                    doc={doc}
-                    variant="doc"
-                    onDelete={handleDelete}
-                    onRunOcr={handleRunOcr}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* ---- Add more ---- */}
-            <div className={styles.addMore}>
-              <div>
-                <p className={styles.addLabel}>Add a book</p>
-                <UploadDropzone onUploaded={handleUploaded} variant="row" />
-              </div>
-              <div>
-                <p className={styles.addLabel}>File a document</p>
-                <ImportPanel onUploaded={handleUploaded} />
-              </div>
-            </div>
-          </>
+          <div className={styles.cardGrid} role="list">
+            {visible.map((doc) => (
+              <FlipCard
+                key={doc.id}
+                doc={doc}
+                onDelete={handleDelete}
+                onRunOcr={handleRunOcr}
+              />
+            ))}
+          </div>
         )}
       </section>
     </main>

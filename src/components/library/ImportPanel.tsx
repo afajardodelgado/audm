@@ -9,10 +9,16 @@ type Tab = "text" | "url";
 
 export default function ImportPanel({
   onUploaded,
+  initialTab = "text",
+  hideTabs = false,
 }: {
   onUploaded: (doc: DocumentSummary) => void;
+  /** Open on a specific tab — used by the toolbar's Create Note / Import URL. */
+  initialTab?: Tab;
+  /** Hide the tab switcher to present a single focused form. */
+  hideTabs?: boolean;
 }) {
-  const [tab, setTab] = useState<Tab>("text");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
@@ -47,26 +53,30 @@ export default function ImportPanel({
 
   return (
     <div className={styles.importPanel}>
-      <div className={styles.importTabs} role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "text"}
-          className={tab === "text" ? styles.importTabActive : styles.importTab}
-          onClick={() => setTab("text")}
-        >
-          Paste text
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === "url"}
-          className={tab === "url" ? styles.importTabActive : styles.importTab}
-          onClick={() => setTab("url")}
-        >
-          From URL
-        </button>
-      </div>
+      {!hideTabs && (
+        <div className={styles.importTabs} role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "text"}
+            className={
+              tab === "text" ? styles.importTabActive : styles.importTab
+            }
+            onClick={() => setTab("text")}
+          >
+            Paste text
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "url"}
+            className={tab === "url" ? styles.importTabActive : styles.importTab}
+            onClick={() => setTab("url")}
+          >
+            From URL
+          </button>
+        </div>
+      )}
 
       <input
         className={styles.importInput}

@@ -1,29 +1,18 @@
 /* ============================================================
-   Audm library — a reading room.
-   "On the Shelf": bound volumes (pdf/epub) as 3D book objects on a
-   horizontally-scrolling shelf. "In the Drawer": loose documents
-   (text/web) as flat file cards. Warm espresso palette + serifs,
-   reusing the global design tokens.
+   Audm library — a quiet gallery on paper.
+   The library shares the reader's off-white paper surface (.theme-paper):
+   moving between the two never feels like leaving the site. Every item is a
+   flip card — a clean cover that turns to reveal its details and the read
+   action. A list view offers a denser register of the same items.
+   Warm serifs + a single gold accent, reusing the global design tokens.
    ============================================================ */
 
 .shelf {
-  /* book geometry — spine faces the reader; cover extends in depth */
-  --bw: 240px; /* cover depth (front-to-back) */
-  --bt: 52px; /* spine thickness */
-  --bh: 372px; /* height */
-
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   padding: 0 clamp(1.25rem, 4vw, 3.25rem) clamp(2rem, 6vh, 4rem);
   position: relative;
-  /* a faint room glow behind the shelving */
-  background-image: radial-gradient(
-      120% 90% at 50% -10%,
-      #2f2521 0%,
-      transparent 55%
-    ),
-    radial-gradient(90% 70% at 100% 0%, #281f1c 0%, transparent 50%);
 }
 
 /* ---- Masthead -------------------------------------------- */
@@ -46,13 +35,13 @@
   font-size: clamp(2.4rem, 6vw, 4rem);
   line-height: 0.95;
   letter-spacing: -0.01em;
-  color: var(--parchment);
+  color: var(--ink);
 }
 .tagline {
   margin-top: 0.6rem;
   max-width: 42ch;
   font-size: 1.05rem;
-  color: var(--taupe-soft);
+  color: var(--ink-soft);
 }
 .nav {
   display: flex;
@@ -61,153 +50,12 @@
   padding-top: 0.5rem;
   font-family: var(--font-display);
   font-size: 0.9rem;
-  color: var(--taupe-soft);
+  color: var(--ink-soft);
 }
 .nav a:hover {
-  color: var(--parchment);
+  color: var(--ink);
 }
 
-/* ---- Continue reading hero ------------------------------- */
-.continue {
-  display: flex;
-  align-items: stretch;
-  gap: clamp(1.25rem, 3vw, 2.25rem);
-  margin-top: clamp(1.75rem, 5vh, 3rem);
-  padding: clamp(1.1rem, 2.2vw, 1.6rem);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  background: linear-gradient(
-    100deg,
-    var(--espresso-2),
-    color-mix(in srgb, var(--espresso-2) 70%, var(--espresso))
-  );
-  box-shadow: 0 18px 44px -28px rgba(0, 0, 0, 0.85);
-  transition: transform 0.25s ease, border-color 0.25s ease,
-    box-shadow 0.25s ease;
-}
-.continue:hover {
-  transform: translateY(-3px);
-  border-color: var(--gold);
-  box-shadow: 0 26px 52px -28px rgba(0, 0, 0, 0.9);
-}
-.continueCover {
-  flex: 0 0 auto;
-  width: clamp(72px, 9vw, 104px);
-  aspect-ratio: 3 / 4;
-  border-radius: 3px;
-  overflow: hidden;
-  background: var(--espresso);
-  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.8);
-  display: grid;
-  place-items: center;
-}
-.continueCover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.continueCoverText {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 0.78rem;
-  line-height: 1.15;
-  color: var(--parchment);
-  padding: 0.5rem;
-  text-align: center;
-}
-.continueBody {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-.continueKicker {
-  font-family: var(--font-display);
-  font-size: 0.68rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--gold);
-}
-.continueTitle {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: clamp(1.3rem, 2.8vw, 1.85rem);
-  line-height: 1.12;
-  color: var(--parchment);
-  margin: 0.45rem 0 0.15rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.continueAuthor {
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: 0.95rem;
-  color: var(--taupe-soft);
-}
-.continueProgress {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 0.9rem 0 1rem;
-  max-width: 30rem;
-}
-.continueBar {
-  flex: 1 1 auto;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-}
-.continueBar span {
-  display: block;
-  height: 100%;
-  background: var(--gold);
-  border-radius: 2px;
-}
-.continuePct {
-  flex: 0 0 auto;
-  font-family: var(--font-display);
-  font-size: 0.78rem;
-  color: var(--gold);
-}
-.continueResume {
-  align-self: flex-start;
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  color: var(--parchment);
-  border-bottom: 1px solid var(--gold);
-  padding-bottom: 1px;
-  transition: color 160ms ease;
-}
-.continue:hover .continueResume {
-  color: var(--gold);
-}
-
-/* ---- Section headers ------------------------------------- */
-.secHead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin: clamp(1.75rem, 5vh, 3rem) 0 0.25rem;
-}
-.secHead h2 {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: clamp(1.3rem, 2.6vw, 1.7rem);
-  color: var(--parchment);
-}
-.secMeta {
-  font-family: var(--font-display);
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--taupe);
-}
-
-/* ---- Stage ----------------------------------------------- */
 .stage {
   flex: 1;
   display: flex;
@@ -215,474 +63,566 @@
 }
 
 /* ============================================================
-   The 3D shelf
+   Toolbar — search · add actions · filters · view · account.
+   A slim sticky working row under the masthead, modelled on the reader's
+   floating .bar so the two pages read as one website (Jakob's Law).
    ============================================================ */
-.shelfFrame {
-  position: relative;
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 9;
+  margin: clamp(1.25rem, 4vh, 2rem) 0 0;
+  padding: 0.6rem 0 0.75rem;
+  /* fades content out beneath it as the page scrolls under */
+  background: linear-gradient(var(--paper) 72%, transparent);
 }
-.scroller {
-  display: flex;
-  gap: clamp(28px, 4vw, 46px);
-  overflow-x: auto;
-  padding: clamp(3.5rem, 8vh, 5rem) 8vw clamp(4rem, 9vh, 5.5rem);
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  cursor: grab;
-}
-.scroller::-webkit-scrollbar {
-  display: none;
-}
-.scroller.dragging {
-  cursor: grabbing;
-  scroll-snap-type: none;
-}
-
-.bookWrap {
-  flex: 0 0 auto;
-  width: 150px;
-  height: var(--bh);
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  scroll-snap-align: center;
-}
-/* contact shadow under the book */
-.bookWrap::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 14px;
-  width: 142px;
-  height: 28px;
-  transform: translateX(-46%);
-  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), transparent 70%);
-  filter: blur(7px);
-  z-index: 0;
-}
-
-/* the book button */
-.book {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  position: relative;
-  width: var(--bt);
-  height: var(--bh);
-  transform-style: preserve-3d;
-  transform: perspective(1700px) rotateX(6deg) rotateY(-16deg);
-  transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
-  will-change: transform;
-  text-align: left;
-}
-/* lift on hover (no rotation — spine stays readable) */
-.book:hover,
-.book:focus-visible {
-  transform: perspective(1700px) rotateX(6deg) rotateY(-16deg) translateY(-14px);
-  outline: none;
-}
-.bookBusy {
-  opacity: 0.72;
-  cursor: default;
-}
-.bookFailed {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.face {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  overflow: hidden;
-  backface-visibility: hidden;
-}
-/* cloth grain for fabric faces */
-.cloth::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.5;
-  mix-blend-mode: soft-light;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7 .85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3C/svg%3E");
-}
-
-/* spine = front (+Z) */
-.fSpine {
-  width: var(--bt);
-  height: var(--bh);
-  margin-left: calc(var(--bt) / -2);
-  margin-top: calc(var(--bh) / -2);
-  transform: translateZ(calc(var(--bw) / 2));
-  background: var(--clothColor);
-  color: var(--inkColor);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.fSpine::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    100deg,
-    rgba(255, 255, 255, 0.16),
-    rgba(255, 255, 255, 0) 22%,
-    rgba(0, 0, 0, 0.18) 86%
-  );
-}
-/* the rotated text row that runs up the spine */
-.spineRow {
-  width: var(--bh);
-  height: var(--bt);
-  transform: rotate(90deg);
+.toolbarRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 0 24px;
-  flex: 0 0 auto;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  flex-wrap: wrap;
 }
-.spineAuthor {
-  font-family: var(--font-display);
-  font-style: italic;
-  font-weight: 500;
-  font-size: 13px;
-  white-space: nowrap;
-  opacity: 0.9;
-  flex: 0 0 auto;
-  max-width: 38%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.spineTitle {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 19px;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1 1 auto;
-  text-align: center;
-}
-/* neutral round mark (placeholder bug, not a logo) */
-.spineMark {
-  width: 18px;
-  height: 18px;
-  border: 1.6px solid currentColor;
-  border-radius: 50%;
-  opacity: 0.7;
-  flex: 0 0 auto;
-  position: relative;
-}
-.spineMark::after {
-  content: "";
-  position: absolute;
-  inset: 4px;
-  border-left: 1.6px solid currentColor;
-  transform: rotate(20deg);
-}
-/* small status line on the spine for non-ready books */
-.spineStatus {
-  font-family: var(--font-display);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--gold);
-  white-space: nowrap;
-  flex: 1 1 auto;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* cover = right (+X). Holds the real cover image when present. */
-.fCover {
-  width: var(--bw);
-  height: var(--bh);
-  margin-left: calc(var(--bw) / -2);
-  margin-top: calc(var(--bh) / -2);
-  transform: rotateY(90deg) translateZ(calc(var(--bt) / 2));
-  background: var(--coverColor);
-  background-size: cover;
-  background-position: center;
-  color: var(--inkColor);
-  padding: 22px 20px;
+.toolbarLeft,
+.toolbarRight {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
-.fCover::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0) 32%);
-}
-/* text block on a coverless (cloth) cover face */
-.cvType {
-  font-family: var(--font-display);
-  font-size: 0.62rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  opacity: 0.75;
-  position: relative;
-  z-index: 1;
-}
-.cvTitle {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.5rem;
-  line-height: 1.05;
-  margin: 0.4rem 0 0.2rem;
-  position: relative;
-  z-index: 1;
-}
-.cvAuthor {
-  font-size: 0.82rem;
-  opacity: 0.85;
-  position: relative;
-  z-index: 1;
+.toolbarLabel {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 1.05rem;
+  color: var(--ink);
+  margin-right: 0.25rem;
 }
 
-/* back cover = left (-X) */
-.fBack {
-  width: var(--bw);
-  height: var(--bh);
-  margin-left: calc(var(--bw) / -2);
-  margin-top: calc(var(--bh) / -2);
-  transform: rotateY(-90deg) translateZ(calc(var(--bt) / 2));
-  background: var(--coverColor);
-  filter: brightness(0.6);
+/* Search */
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
-/* pages = back (-Z) */
-.fPages {
-  width: var(--bt);
-  height: var(--bh);
-  margin-left: calc(var(--bt) / -2);
-  margin-top: calc(var(--bh) / -2);
-  transform: rotateY(180deg) translateZ(calc(var(--bw) / 2));
-  background: repeating-linear-gradient(
-    90deg,
-    #efe6d4,
-    #efe6d4 1px,
-    #d9cdb4 2px,
-    #efe6d4 3px
-  );
-}
-/* top (head) */
-.fTop {
-  width: var(--bt);
-  height: var(--bw);
-  margin-left: calc(var(--bt) / -2);
-  margin-top: calc(var(--bw) / -2);
-  transform: rotateX(90deg) translateZ(calc(var(--bh) / 2));
-  background: linear-gradient(90deg, var(--clothColor) 0 7%, #efe6d4 7%);
-}
-.fTop::after {
-  content: "";
+.searchIcon {
   position: absolute;
-  left: 7%;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    #e9dfca,
-    #e9dfca 1px,
-    #d6c8ac 2px,
-    #e9dfca 3px
-  );
-  opacity: 0.8;
+  left: 0.7rem;
+  font-size: 0.85rem;
+  opacity: 0.55;
+  pointer-events: none;
 }
-/* bottom */
-.fBottom {
-  width: var(--bt);
-  height: var(--bw);
-  margin-left: calc(var(--bt) / -2);
-  margin-top: calc(var(--bw) / -2);
-  transform: rotateX(-90deg) translateZ(calc(var(--bh) / 2));
-  background: #221a14;
+.searchInput {
+  width: clamp(11rem, 22vw, 18rem);
+  min-height: 44px;
+  padding: 0.5rem 0.8rem 0.5rem 2.1rem;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid var(--ink-faint);
+  border-radius: 3px;
+  transition: border-color 160ms ease;
+}
+.searchInput:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.searchInput::placeholder {
+  color: var(--ink-faint);
 }
 
-/* ---- Shelf nav buttons ----------------------------------- */
-.navBtn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 6;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid var(--taupe);
-  background: rgba(46, 37, 34, 0.9);
-  color: var(--parchment);
+.addCluster {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* Shared ghost button for add actions + filter triggers (importTab idiom).
+   Active = gold border + soft wash. */
+.toolBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0.5rem 0.85rem;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
   cursor: pointer;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  border-radius: 3px;
+  transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
+  white-space: nowrap;
+}
+.toolBtn:hover {
+  color: var(--ink);
+  border-color: var(--gold);
+}
+.toolBtnActive {
+  color: var(--ink);
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+/* Filter dropdown popovers */
+.menuWrap {
+  position: relative;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 11;
+  min-width: 12rem;
+  list-style: none;
+  padding: 0.3rem;
+  background: var(--paper);
+  border: 1px solid var(--ink-faint);
+  border-radius: 4px;
+  box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.4);
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 40px;
+  padding: 0.5rem 0.6rem;
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 2px;
+  transition: color 140ms ease, background 140ms ease;
+}
+.menuItem:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+.menuItemActive {
+  color: var(--ink);
+  border-left-color: var(--gold);
+  background: var(--gold-soft);
+}
+.menuCheck {
+  width: 0.9rem;
+  color: var(--gold);
+  flex: 0 0 auto;
+}
+
+/* View toggle */
+.viewToggle {
+  display: flex;
+}
+.viewBtn {
   display: grid;
   place-items: center;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.4);
-  transition: transform 0.2s ease, background 0.2s ease;
-  font-size: 1.25rem;
+  width: 44px;
+  height: 44px;
+  font-size: 1.05rem;
+  cursor: pointer;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.viewBtn:first-child {
+  border-radius: 3px 0 0 3px;
+}
+.viewBtn:last-child {
+  border-radius: 0 3px 3px 0;
+  margin-left: -1px;
+}
+.viewBtn:hover {
+  color: var(--ink);
+  border-color: var(--gold);
+}
+.viewBtnActive {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  z-index: 1;
+}
+
+/* Account avatar — gold-rimmed initial */
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 50%;
+  border: 1px solid var(--gold);
+  color: var(--ink);
   font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.95rem;
+  flex: 0 0 auto;
+  transition: background 160ms ease;
 }
-.navBtn:hover {
-  transform: translateY(-50%) scale(1.08);
-  background: var(--espresso-2);
+.avatar:hover {
+  background: var(--gold-soft);
 }
-.navPrev {
-  left: 2px;
+
+/* ---- Inline add drawer (progressive disclosure — Hick) --- */
+.addDrawer {
+  margin: 0.5rem 0 0;
+  padding: clamp(1rem, 2.2vw, 1.5rem);
+  border: 1px solid var(--ink-faint);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ink) 3%, var(--paper));
+  position: relative;
+  animation: addDrawerIn 180ms ease;
 }
-.navNext {
-  right: 2px;
+@keyframes addDrawerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.navBtn:disabled {
-  opacity: 0;
-  pointer-events: none;
+.addDrawerHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.addDrawerTitle {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.addDrawerClose {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  border: 1px solid var(--ink-faint);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+.addDrawerClose:hover {
+  color: var(--ink);
+  border-color: var(--gold);
 }
 
 /* ============================================================
-   The drawer (loose documents)
+   The card gallery — one flip card per item.
+   Front: a cover thumbnail. Back (on hover / focus): details + read action.
    ============================================================ */
-.grid {
+.cardGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
-  gap: clamp(1rem, 2.2vw, 1.4rem);
-  padding: 1.25rem 0 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: clamp(1.25rem, 2.6vw, 2rem);
+  margin: clamp(1.25rem, 4vh, 2rem) 0 0;
   align-content: start;
 }
-.docWrap {
+.fcWrap {
   position: relative;
 }
-.docLink {
+/* the flippable card — a fixed-aspect tile with two faces */
+.fc {
   display: block;
+  aspect-ratio: 3 / 4;
+  perspective: 1100px;
+  cursor: pointer;
 }
-.doc {
-  background: var(--espresso-2);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 3px;
-  aspect-ratio: 3 / 3.7;
-  padding: 1.1rem;
+.fcInner {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* flip on hover or when anything inside takes keyboard focus */
+.fc:hover .fcInner,
+.fc:focus-visible .fcInner {
+  transform: rotateY(180deg);
+}
+.fcFront,
+.fcBack {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* ---- Front: the cover ---- */
+.fcFront {
+  box-shadow: 0 10px 26px -16px rgba(0, 0, 0, 0.5);
+}
+.fcCover {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  position: relative;
-  color: var(--parchment);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.28);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  justify-content: flex-end;
+  padding: 1rem 0.9rem;
+  background: var(--clothColor);
+  color: var(--inkColor);
 }
-/* dog-eared corner */
-.doc::after {
+.fcCover::after {
   content: "";
   position: absolute;
-  top: 0;
-  right: 0;
-  width: 24px;
-  height: 24px;
-  background: linear-gradient(225deg, var(--espresso) 0 50%, transparent 50%);
-  border-left: 1px solid rgba(255, 255, 255, 0.06);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  inset: 0;
+  /* faint binding sheen + a hairline at the spine edge */
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0) 22%,
+    rgba(0, 0, 0, 0.16) 92%
+  );
+  border-left: 3px solid rgba(0, 0, 0, 0.18);
+  pointer-events: none;
 }
-.docReady:hover {
-  transform: translateY(-5px);
-  border-color: var(--gold);
-  box-shadow: 0 22px 36px rgba(0, 0, 0, 0.4);
+.fcCoverImg {
+  background-image: var(--coverImg);
+  background-size: cover;
+  background-position: center;
 }
-.docBusy {
-  opacity: 0.72;
+.fcCoverImg::after {
+  border-left: 0;
+  background: linear-gradient(rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.28));
 }
-.docType {
+.fcCoverType {
+  position: relative;
+  z-index: 1;
   font-family: var(--font-display);
-  font-size: 0.62rem;
-  letter-spacing: 0.18em;
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--gold);
+  opacity: 0.8;
 }
-/* faux preview lines (decorative) */
-.docPrev {
-  margin: 0.85rem 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.docPrev span {
-  height: 5px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
-}
-.docPrev span:nth-child(1) {
-  width: 60%;
-  height: 7px;
-  background: var(--taupe-soft);
-}
-.docPrev span:nth-child(2) {
-  width: 100%;
-}
-.docPrev span:nth-child(3) {
-  width: 92%;
-}
-.docPrev span:nth-child(4) {
-  width: 96%;
-}
-.docPrev span:nth-child(5) {
-  width: 46%;
-}
-.docTitle {
+.fcCoverTitle {
+  position: relative;
+  z-index: 1;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: 1.05rem;
-  line-height: 1.1;
-  margin: 0.85rem 0 0.5rem;
+  font-size: 1.15rem;
+  line-height: 1.08;
+  margin: 0.35rem 0 0.15rem;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.docMeta {
-  font-family: var(--font-display);
-  font-size: 0.68rem;
-  letter-spacing: 0.02em;
-  color: var(--taupe);
-  display: flex;
-  justify-content: space-between;
-  gap: 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-top: 0.5rem;
-}
-.docProgress {
-  color: var(--gold);
-}
-.docStatus {
-  color: var(--gold);
+.fcCoverAuthor {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.8rem;
+  opacity: 0.85;
 }
 
-/* ---- Remove / confirm (shared by book + doc) ------------- */
-.removeBtn {
+/* ---- Back: details + read action ---- */
+.fcBack {
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem 1rem;
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: 0 10px 26px -16px rgba(0, 0, 0, 0.5);
+}
+.fcType {
+  font-family: var(--font-display);
+  font-size: 0.58rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.fcTitle {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.12;
+  margin: 0.5rem 0 0.3rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fcAuthor {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: color-mix(in srgb, var(--paper) 70%, transparent);
+}
+.fcSpacer {
+  flex: 1 1 auto;
+}
+.fcProgress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  color: var(--gold);
+  margin-bottom: 0.5rem;
+}
+.fcBar {
+  flex: 1 1 auto;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.16);
+  overflow: hidden;
+}
+.fcBar span {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+}
+.fcMeta {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--paper) 60%, transparent);
+  margin-bottom: 0.5rem;
+}
+.fcCta {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--paper);
+  border-bottom: 1px solid var(--gold);
+  padding-bottom: 1px;
+  align-self: flex-start;
+}
+.fcStatus {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  color: var(--gold);
+}
+.fcBusy {
+  cursor: default;
+}
+/* a non-ready card shouldn't flip away its status into a Read action */
+.fcBusy:hover .fcInner {
+  transform: none;
+}
+
+/* ============================================================
+   The register (list view) — a card catalog of every item.
+   Each row keeps the item's cover colour as a spine strip.
+   ============================================================ */
+.register {
+  display: flex;
+  flex-direction: column;
+  margin: clamp(1rem, 3vh, 1.75rem) 0 0;
+  border-top: 1px solid var(--ink-faint);
+}
+.regRow {
+  position: relative;
+  border-bottom: 1px solid var(--ink-faint);
+}
+.regLink {
+  display: grid;
+  grid-template-columns: 4px auto 1fr auto auto;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.85rem 2.4rem 0.85rem 0;
+  min-height: 56px;
+  transition: background 160ms ease;
+}
+a.regLink:hover {
+  background: color-mix(in srgb, var(--ink) 3%, transparent);
+}
+.regSpine {
+  width: 4px;
+  height: 2.1rem;
+  border-radius: 2px;
+  background: var(--clothColor, var(--ink-faint));
+}
+.regType {
+  font-family: var(--font-display);
+  font-size: 0.6rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold);
+  width: 3rem;
+}
+.regTitle {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.regAuthor {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  justify-self: end;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 16rem;
+}
+.regMeta {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  justify-self: end;
+  white-space: nowrap;
+}
+.regProgress,
+.regStatus {
+  color: color-mix(in srgb, var(--gold) 80%, var(--ink));
+}
+
+/* ---- Remove / confirm / OCR (shared) --------------------- */
+.removeBtn,
+.regRemove {
   position: absolute;
-  top: -0.5rem;
-  right: -0.5rem;
   z-index: 7;
-  width: 1.6rem;
-  height: 1.6rem;
   border-radius: 50%;
-  border: 1px solid var(--taupe);
-  background: var(--espresso-2);
-  color: var(--taupe-soft);
+  border: 1px solid var(--ink-faint);
+  background: var(--paper);
+  color: var(--ink-soft);
   font-size: 1rem;
   line-height: 1;
   cursor: pointer;
   opacity: 0;
   transition: opacity 150ms ease, color 150ms ease;
 }
-.bookWrap:hover .removeBtn,
-.docWrap:hover .removeBtn,
-.removeBtn:focus-visible {
+.removeBtn {
+  top: -0.5rem;
+  right: -0.5rem;
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.regRemove {
+  top: 50%;
+  right: 0.4rem;
+  transform: translateY(-50%);
+  width: 1.8rem;
+  height: 1.8rem;
+}
+.fcWrap:hover .removeBtn,
+.removeBtn:focus-visible,
+.regRow:hover .regRemove,
+.regRemove:focus-visible {
   opacity: 1;
 }
-.removeBtn:hover {
-  color: var(--parchment);
+.removeBtn:hover,
+.regRemove:hover {
+  color: var(--ink);
+  border-color: var(--gold);
 }
 .actions {
   position: absolute;
@@ -696,77 +636,73 @@
   font-family: var(--font-display);
   font-size: 0.75rem;
   padding: 0.2rem 0.5rem;
-  border: 1px solid var(--taupe);
-  background: var(--espresso-2);
-  color: var(--parchment);
+  border: 1px solid var(--ink-faint);
+  background: var(--paper);
+  color: var(--ink);
   cursor: pointer;
 }
 .confirmDelete {
   border-color: var(--hl-rose) !important;
 }
-
 .ocrBtn {
-  align-self: flex-start;
-  margin-top: 0.4rem;
+  position: absolute;
+  bottom: -2.4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
   padding: 0.3rem 0.7rem;
   font-family: var(--font-display);
   font-size: 0.78rem;
   cursor: pointer;
   color: var(--gold);
-  background: transparent;
+  background: var(--paper);
   border: 1px solid var(--gold);
+  white-space: nowrap;
   transition: color 160ms ease, background 160ms ease;
 }
 .ocrBtn:hover {
-  color: var(--espresso);
+  color: var(--paper);
   background: var(--gold);
 }
 
-/* ---- Empty state & add-more ------------------------------ */
-.empty {
-  margin: auto;
+/* ---- Empty state & no-match ------------------------------ */
+.empty,
+.noMatch {
+  margin: clamp(2rem, 8vh, 4rem) auto;
   max-width: 30rem;
   text-align: center;
-  padding: 3rem 0;
+  padding: 2rem 0;
 }
 .emptyLead {
   font-family: var(--font-display);
   font-size: 1.6rem;
-  color: var(--parchment);
+  color: var(--ink);
   margin-bottom: 0.75rem;
 }
 .emptyHint {
   font-family: var(--font-body);
   font-size: 1.05rem;
   line-height: 1.55;
-  color: var(--taupe-soft);
+  color: var(--ink-soft);
   margin-bottom: 2.25rem;
 }
-.sectionEmpty {
-  font-family: var(--font-body);
-  font-style: italic;
-  color: var(--taupe);
-  padding: 1.5rem 0.25rem;
-}
-.addMore {
-  margin-top: clamp(2rem, 6vh, 3.5rem);
-  padding-top: clamp(1.5rem, 4vh, 2.5rem);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: clamp(1.5rem, 4vw, 3rem);
-  align-items: start;
-}
-.addMore .addLabel {
+.clearFilters {
+  padding: 0.6rem 1.3rem;
   font-family: var(--font-display);
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--taupe);
-  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  transition: color 160ms ease, background 160ms ease;
+}
+.clearFilters:hover {
+  color: var(--paper);
+  background: var(--gold);
 }
 
-/* ---- Upload affordances (kept from prior design) --------- */
+/* ---- Upload / import affordances -------------------------- */
 .dropEmpty,
 .dropRow {
   display: flex;
@@ -774,12 +710,14 @@
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
-  border: 1px solid var(--taupe);
-  color: var(--taupe-soft);
+  border: 1px solid var(--ink-faint);
+  border-radius: 3px;
+  color: var(--ink-soft);
   transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
 }
 .dropEmpty {
   padding: 2.25rem 1.5rem;
+  margin-bottom: 1rem;
 }
 .dropRow {
   padding: 1.4rem 1.15rem;
@@ -789,8 +727,8 @@
 .dropRow:hover,
 .dropActive {
   border-color: var(--gold);
-  color: var(--parchment);
-  background: rgba(201, 162, 75, 0.06);
+  color: var(--ink);
+  background: var(--gold-soft);
 }
 .dropLabel {
   font-family: var(--font-display);
@@ -799,14 +737,14 @@
 .dropError {
   font-family: var(--font-body);
   font-size: 0.85rem;
-  color: var(--hl-rose);
+  color: var(--hl-rose-ink);
 }
 
-/* Paste-text / URL import */
 .importPanel {
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  text-align: left;
 }
 .importTabs {
   display: flex;
@@ -820,18 +758,19 @@
   font-size: 0.9rem;
   cursor: pointer;
   background: transparent;
-  border: 1px solid var(--taupe);
-  color: var(--taupe-soft);
+  border: 1px solid var(--ink-faint);
+  border-radius: 3px;
+  color: var(--ink-soft);
   transition: border-color 160ms ease, color 160ms ease, background 160ms ease;
 }
 .importTab:hover {
-  color: var(--parchment);
+  color: var(--ink);
   border-color: var(--gold);
 }
 .importTabActive {
-  color: var(--parchment);
+  color: var(--ink);
   border-color: var(--gold);
-  background: rgba(201, 162, 75, 0.08);
+  background: var(--gold-soft);
 }
 .importInput,
 .importTextarea {
@@ -839,9 +778,10 @@
   padding: 0.65rem 0.8rem;
   font-family: var(--font-body);
   font-size: 0.95rem;
-  color: var(--parchment);
-  background: rgba(0, 0, 0, 0.14);
-  border: 1px solid var(--taupe);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid var(--ink-faint);
+  border-radius: 3px;
   transition: border-color 160ms ease;
 }
 .importTextarea {
@@ -856,7 +796,7 @@
 }
 .importInput::placeholder,
 .importTextarea::placeholder {
-  color: var(--taupe-soft);
+  color: var(--ink-faint);
 }
 .importSubmit {
   align-self: flex-start;
@@ -864,10 +804,14 @@
   font-family: var(--font-display);
   font-size: 0.95rem;
   cursor: pointer;
-  color: var(--espresso);
-  background: var(--gold);
-  border: 1px solid var(--gold);
-  transition: opacity 160ms ease;
+  color: var(--paper);
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  transition: opacity 160ms ease, background 160ms ease;
+}
+.importSubmit:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 85%, var(--gold));
 }
 .importSubmit:disabled {
   opacity: 0.45;
@@ -877,42 +821,45 @@
 /* ---- Responsive ------------------------------------------ */
 @media (max-width: 600px) {
   .shelf {
-    --bw: 196px;
-    --bt: 44px;
-    --bh: 300px;
     padding: 0 1.1rem 2rem;
   }
-  .scroller {
-    padding: 3rem 22vw 3.5rem;
-    gap: 26px;
+  .toolbarLeft,
+  .toolbarRight {
+    width: 100%;
   }
-  .bookWrap {
-    width: 118px;
+  .searchInput {
+    flex: 1;
+    width: auto;
   }
-  .grid {
-    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-    gap: 0.9rem;
+  .menu {
+    right: auto;
+    left: 0;
   }
-  .addMore {
-    grid-template-columns: 1fr;
+  .cardGrid {
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: 1rem;
   }
-  .continue {
-    flex-direction: column;
+  .regAuthor {
+    display: none;
   }
-  .continueTitle {
-    white-space: normal;
+  .regLink {
+    grid-template-columns: 4px auto 1fr auto;
+    gap: 0.6rem;
   }
 }
 
+/* ---- Reduced motion: no flip, no drawer slide ------------ */
 @media (prefers-reduced-motion: reduce) {
-  .book {
+  .fcInner {
     transition: none;
   }
-  .book:hover,
-  .book:focus-visible {
-    transform: perspective(1700px) rotateX(6deg) rotateY(-16deg);
+  /* Without the flip animation, reveal the back face by default so its
+     details and the read action stay reachable. */
+  .fc:hover .fcInner,
+  .fc:focus-visible .fcInner {
+    transform: rotateY(180deg);
   }
-  .scroller {
-    scroll-behavior: auto;
+  .addDrawer {
+    animation: none;
   }
 }
