@@ -1,0 +1,9 @@
+# Pin the build toolchain to Node 22. Without this, Railway's Nixpacks builder
+# defaults to Node 18, which is too old for our deps (next 16, prisma 7,
+# @supabase/*, better-sqlite3 all require Node >= 20) and fails `npm ci` at
+# prisma's preinstall check. openssl is kept for prisma's engines.
+[phases.setup]
+nixPkgs = ['nodejs_22', 'openssl']
+
+[variables]
+NIXPACKS_NODE_VERSION = '22'
