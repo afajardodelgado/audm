@@ -8,6 +8,9 @@ import styles from "./Reader.module.css";
 // Intl.Segmenter used server-side guarantees identical boundaries, so anchors
 // stay valid. Sentences are joined with a single space (whitespace-collapsed
 // upstream), so offsets within a sentence are exact.
+//
+// Each block also carries a left-margin number (its 1-based index) for visual
+// indexing — a quiet "line number" the reader can scan or click to jump to.
 function BlockRendererImpl({ block }: { block: BlockData }) {
   const sentences = splitSentences(block.text);
   const spans = sentences.map((s, si) => (
@@ -17,17 +20,39 @@ function BlockRendererImpl({ block }: { block: BlockData }) {
     </span>
   ));
 
+  // The margin number; clickable (handled by the reader via data-block-idx).
+  const num = (
+    <span
+      className={styles.blockNum}
+      data-block-idx={block.index}
+      aria-hidden
+    >
+      {block.index + 1}
+    </span>
+  );
+
   switch (block.type) {
     case "heading": {
       const level = Math.min(3, Math.max(1, block.level ?? 2));
       const Tag = (`h${level}` as "h1" | "h2" | "h3");
-      return <Tag>{spans}</Tag>;
+      return (
+        <Tag className={styles.numbered}>
+          {num}
+          {spans}
+        </Tag>
+      );
     }
     case "blockquote":
-      return <blockquote>{spans}</blockquote>;
+      return (
+        <blockquote className={styles.numbered}>
+          {num}
+          {spans}
+        </blockquote>
+      );
     case "listitem":
       return (
-        <p className={styles.listItem}>
+        <p className={`${styles.listItem} ${styles.numbered}`}>
+          {num}
           <span className={styles.bullet} aria-hidden>
             ·
           </span>
@@ -35,7 +60,12 @@ function BlockRendererImpl({ block }: { block: BlockData }) {
         </p>
       );
     default:
-      return <p>{spans}</p>;
+      return (
+        <p className={styles.numbered}>
+          {num}
+          {spans}
+        </p>
+      );
   }
 }
 

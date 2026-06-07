@@ -73,6 +73,51 @@
   height: 60vh;
 }
 
+/* ---- Block numbers (left-margin visual index) ------------ */
+/* Each block carries a quiet number in the left margin, aligned to its first
+   line, for scanning / jumping. Positioned relative to the block so it tracks
+   reflow with no JS. listItem already sets position:relative. */
+.numbered {
+  position: relative;
+}
+.blockNum {
+  position: absolute;
+  right: 100%;
+  margin-right: 1rem;
+  top: 0;
+  width: 2.5rem;
+  text-align: right;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  line-height: inherit;
+  color: var(--ink-faint);
+  user-select: none;
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+.blockNum:hover {
+  color: var(--ink-soft);
+}
+.blockNumActive {
+  color: var(--gold);
+  font-weight: 700;
+}
+/* Headings have larger line-height; nudge the number to sit on the cap line. */
+.numbered h1 .blockNum,
+h1.numbered .blockNum,
+h2.numbered .blockNum,
+h3.numbered .blockNum {
+  top: 0.15em;
+}
+/* No room for a left-margin number once the window is narrow (same threshold as
+   margin comments). */
+@media (max-width: 72rem) {
+  .blockNum {
+    display: none;
+  }
+}
+
 /* ---- Focus line ------------------------------------------ */
 .focusLine {
   top: 50%;
@@ -145,6 +190,25 @@
 }
 .playBtn:hover {
   background: var(--gold-soft);
+}
+.recenterBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ink-soft);
+  border-radius: 999px;
+  background: var(--gold-soft);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  transition: background 150ms ease;
+}
+.recenterBtn:hover {
+  background: var(--gold);
+  color: var(--paper);
 }
 .speed {
   display: flex;
@@ -267,46 +331,117 @@
   color: var(--paper) !important;
 }
 
-/* ---- Margin notes (Word-comment style) ------------------- */
-.marginNotes {
-  position: absolute;
-  top: 0;
-  right: clamp(0.5rem, 3vw, 2rem);
-  bottom: 0;
-  width: 1.6rem;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 7;
-}
-.noteMarker {
-  position: absolute;
-  pointer-events: auto;
-  /* top set inline; offset to align with the scrolled content */
-}
-.noteDot {
-  display: block;
-  width: 0.9rem;
-  height: 0.9rem;
-  border-radius: 50% 50% 50% 2px;
-  cursor: pointer;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-}
+/* ---- Margin comments (Word / Google-Docs style) ---------- */
+/* Cards sit in the empty space beside the centred reading column (max-width
+   --measure ≈ 66ch, so ~21rem each side of centre), aligned to their highlight
+   and alternating margins. `top` is set inline from the highlight's live rect. */
 .noteCard {
   position: absolute;
-  right: 1.4rem;
-  top: -0.3rem;
-  width: 16rem;
+  width: clamp(11rem, 16vw, 15rem);
   background: var(--paper);
-  border: 1px solid var(--ink-soft);
-  padding: 0.7rem 0.85rem;
-  box-shadow: 0 18px 40px -24px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--ink-faint);
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  box-shadow: 0 12px 32px -22px rgba(0, 0, 0, 0.55);
   font-family: var(--font-body);
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   line-height: 1.45;
   color: var(--ink);
+  z-index: 7;
+}
+.noteRight {
+  left: calc(50% + 21rem);
+  right: 1.25rem;
+  text-align: right;
+  border-left-width: 3px;
+}
+.noteLeft {
+  right: calc(50% + 21rem);
+  /* clear the progress rail / hamburger pinned to the far left */
+  left: 2.75rem;
+  text-align: right;
+  border-right-width: 3px;
+}
+.noteCard p {
+  margin: 0;
 }
 .noteCard p + p {
   margin-top: 0.5rem;
+}
+
+/* Prev/next arrows: jump to the adjacent comment. Kept LTR regardless of the
+   card's text alignment. */
+.noteNav {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+.noteLeft .noteNav {
+  justify-content: flex-start;
+}
+.noteNavBtn {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ink-faint);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: background 150ms ease, color 150ms ease;
+}
+.noteNavBtn:hover:not(:disabled) {
+  background: var(--gold-soft);
+  color: var(--ink);
+}
+.noteNavBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Accent edge tints the card toward its highlight colour (left edge for cards
+   on the right, right edge for cards on the left — the edge nearest the text). */
+.noteAccent_yellow.noteRight { border-left-color: var(--hl-yellow); }
+.noteAccent_rose.noteRight { border-left-color: var(--hl-rose); }
+.noteAccent_blue.noteRight { border-left-color: var(--hl-blue); }
+.noteAccent_green.noteRight { border-left-color: var(--hl-green); }
+.noteAccent_yellow.noteLeft { border-right-color: var(--hl-yellow); }
+.noteAccent_rose.noteLeft { border-right-color: var(--hl-rose); }
+.noteAccent_blue.noteLeft { border-right-color: var(--hl-blue); }
+.noteAccent_green.noteLeft { border-right-color: var(--hl-green); }
+
+/* Narrow screens (no room for margins): a compact dot in a thin right gutter
+   that expands the comment inline on tap. `top` is set inline like the cards. */
+.noteMarkerWrap {
+  position: absolute;
+  right: 0.5rem;
+  z-index: 7;
+}
+.noteMarker {
+  display: block;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50% 50% 50% 2px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  padding: 0;
+}
+.noteDot_yellow { background: var(--hl-yellow); }
+.noteDot_rose { background: var(--hl-rose); }
+.noteDot_blue { background: var(--hl-blue); }
+.noteDot_green { background: var(--hl-green); }
+/* Expanded comment for a marker — anchored to the gutter, opening leftward. */
+.notePopover {
+  position: absolute;
+  top: 1.3rem;
+  right: 0;
+  width: min(18rem, 80vw);
+  text-align: left;
 }
 
 /* ---- Not-ready state ------------------------------------- */

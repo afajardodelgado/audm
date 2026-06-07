@@ -102,11 +102,31 @@ export default function Reader({
     ).map((el) => ({ sid: el.dataset.sid!, text: (el.textContent ?? "").trimEnd() }));
   }, []);
 
+  // A just-clicked sentence. Clicking jumps the highlight + recenter there
+  // *immediately*, before the narrator has synthesized audio for it (that can
+  // take a beat, longer on the first cold click). Cleared once the narrator's
+  // own currentSid catches up, after which the narrator is the clock again.
+  const [clickedSid, setClickedSid] = useState<string | null>(null);
+
+  // Whether the narration follow-crawl is engaged. A manual wheel/touch while
+  // narrating suspends it (set false) so the page doesn't fight the reader;
+  // jumping or "Re-center" re-engages it. Declared here so the jump/click
+  // callbacks below can re-engage it.
+  const [followScroll, setFollowScroll] = useState(true);
+
   // While narrating, the narrator is the clock: it drives the gold sentence
   // highlight and the page scrolls to follow it. Otherwise the scroll observer
-  // (current.sid) drives the highlight. Exactly one driver at a time.
+  // (current.sid) drives the highlight. A fresh click overrides both until the
+  // narrator reaches it. Exactly one driver at a time.
   const narrating = narrator.playing || narrator.currentSid !== null;
-  const activeSid = narrating ? narrator.currentSid : current.sid;
+  const activeSid = clickedSid ?? (narrating ? narrator.currentSid : current.sid);
+
+  // Hand control back to the narrator once it has reached the clicked sentence
+  // (syncing to an external system — the narrator's own currentSid catching up).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (clickedSid && narrator.currentSid === clickedSid) setClickedSid(null);
+  }, [clickedSid, narrator.currentSid]);
 
   // Play/pause: narration when speech is supported, else silent auto-scroll.
   const togglePlay = useCallback(() => {
@@ -114,21 +134,54 @@ export default function Reader({
     else engine.toggle();
   }, [narrator, buildUnits, current.sid, engine]);
 
-  // Click a sentence to (re)start narration from the top of that sentence —
-  // Speechify-style. Ignore clicks that are part of a text selection (the reader
-  // may be selecting to highlight) and clicks outside any sentence span.
-  const onContentClick = useCallback(
-    (e: React.MouseEvent) => {
+  // Jump to (and narrate from) the sentence span `sid`: highlight + recenter
+  // right away so the jump feels instant; the narrator synthesizes and catches up.
+  const jumpToSid = useCallback(
+    (sid: string) => {
       if (!narrator.supported) return;
-      const sel = window.getSelection();
-      if (sel && !sel.isCollapsed) return; // a selection, not a plain click
-      const span = (e.target as HTMLElement).closest<HTMLElement>("[data-sid]");
-      const sid = span?.dataset.sid;
-      if (!sid) return;
+      const span = contentRef.current?.querySelector<HTMLElement>(
+        `[data-sid="${sid}"]`
+      );
+      if (!span) return;
+      setClickedSid(sid);
+      setFollowScroll(true); // jumping re-engages the follow-crawl
+      span.scrollIntoView({ behavior: "smooth", block: "center" });
       narrator.play(buildUnits(), sid);
     },
     [narrator, buildUnits]
   );
+
+  // Click a sentence to (re)start narration from the top of that sentence —
+  // Speechify-style. A click on a left-margin block number jumps to that block's
+  // first sentence. Ignore clicks that are part of a text selection (the reader
+  // may be selecting to highlight) and clicks outside any sentence span.
+  const onContentClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (!narrator.supported) return;
+      const target = e.target as HTMLElement;
+      const num = target.closest<HTMLElement>("[data-block-idx]");
+      if (num) {
+        jumpToSid(`${num.dataset.blockIdx}:0`);
+        return;
+      }
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) return; // a selection, not a plain click
+      const sid = target.closest<HTMLElement>("[data-sid]")?.dataset.sid;
+      if (sid) jumpToSid(sid);
+    },
+    [narrator, jumpToSid]
+  );
+
+  // Re-center: snap back to the line being narrated and resume the follow-crawl
+  // after the reader has scrolled away. Smoothly returns, then the loop holds it.
+  const recenter = useCallback(() => {
+    setFollowScroll(true);
+    const sid = narrator.currentSid;
+    if (!sid) return;
+    contentRef.current
+      ?.querySelector<HTMLElement>(`[data-sid="${sid}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [narrator.currentSid]);
 
   // One shared rate control feeds both the narrator and the scroll fallback.
   const changeRate = useCallback(
@@ -240,15 +293,108 @@ export default function Reader({
     }
   }, [activeSid]);
 
-  // While narrating, keep the spoken sentence centered in view. (useScrollEngine
-  // only pauses on wheel/touch, not programmatic scroll, so there's no fight.)
+  // Bold the left-margin number of the block we're currently in (mirrors the
+  // active-sentence highlight; O(1) DOM toggle, no block re-render).
+  const prevNumRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    if (!narrator.playing || !narrator.currentSid) return;
+    if (prevNumRef.current) {
+      prevNumRef.current.classList.remove(styles.blockNumActive);
+      prevNumRef.current = null;
+    }
+    if (!activeSid) return;
+    const { block } = parseSid(activeSid);
+    if (!Number.isFinite(block)) return;
     const el = contentRef.current?.querySelector<HTMLElement>(
-      `[data-sid="${narrator.currentSid}"]`
+      `[data-block-idx="${block}"]`
     );
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [narrator.currentSid, narrator.playing]);
+    if (el) {
+      el.classList.add(styles.blockNumActive);
+      prevNumRef.current = el;
+    }
+  }, [activeSid]);
+
+  // While narrating, the page crawls continuously to keep the spoken text glued
+  // to the centre focus line (Speechify-style). Rather than a per-sentence jump,
+  // a rAF loop eases scrollTop toward the live target every frame — the target
+  // is the currently-spoken word when we have one, else the active sentence, so
+  // motion is smooth within a sentence and across boundaries. Word/sentence
+  // positions are read from refs so the loop never restarts as they advance.
+  // (useScrollEngine only pauses on wheel/touch, not programmatic scroll, so
+  // there's no fight.)
+  // Mirror the live narration position + follow state into refs so the rAF loop
+  // below reads fresh values without restarting every time they change. (A
+  // just-clicked sentence takes priority until the narrator reaches it, so the
+  // crawl heads straight to the click instead of drifting back to the sentence
+  // still finishing synthesis.)
+  const wordRangeRef = useRef(narrator.currentWordRange);
+  const currentSidRef = useRef(narrator.currentSid);
+  const clickedSidRef = useRef(clickedSid);
+  const followScrollRef = useRef(followScroll);
+  useEffect(() => {
+    wordRangeRef.current = narrator.currentWordRange;
+    currentSidRef.current = narrator.currentSid;
+    clickedSidRef.current = clickedSid;
+    followScrollRef.current = followScroll;
+  }, [narrator.currentWordRange, narrator.currentSid, clickedSid, followScroll]);
+
+  // The reader can scroll away to read ahead/back: a manual wheel/touch while
+  // narrating suspends the crawl so the page doesn't fight them. Re-engaged by
+  // the "Re-center" control or by jumping. When suspended the loop keeps running
+  // but stops moving the page.
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const release = () => setFollowScroll(false);
+    scroller.addEventListener("wheel", release, { passive: true });
+    scroller.addEventListener("touchmove", release, { passive: true });
+    return () => {
+      scroller.removeEventListener("wheel", release);
+      scroller.removeEventListener("touchmove", release);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!narrator.playing) return;
+    const scroller = scrollerRef.current;
+    const content = contentRef.current;
+    if (!scroller || !content) return;
+
+    let raf = 0;
+    const tick = () => {
+      if (!followScrollRef.current) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      // Target rect: the just-clicked sentence if pending, else the live word
+      // when it resolves to its text node, else the whole active sentence span.
+      let rect: DOMRect | null = null;
+      const wr = clickedSidRef.current ? null : wordRangeRef.current;
+      const sid = clickedSidRef.current ?? wr?.sid ?? currentSidRef.current;
+      const span = sid
+        ? content.querySelector<HTMLElement>(`[data-sid="${sid}"]`)
+        : null;
+      if (span) {
+        const node = span.firstChild;
+        if (wr && node && node.nodeType === Node.TEXT_NODE) {
+          const len = (node as Text).length;
+          const r = document.createRange();
+          r.setStart(node, Math.min(wr.start, len));
+          r.setEnd(node, Math.min(wr.end, len));
+          rect = r.getBoundingClientRect();
+        }
+        if (!rect || rect.height === 0) rect = span.getBoundingClientRect();
+      }
+      if (rect) {
+        // How far to scroll so the target's midpoint sits at the focus line
+        // (viewport centre), then ease a fraction of the way there.
+        const delta = (rect.top + rect.bottom) / 2 - window.innerHeight / 2;
+        if (Math.abs(delta) > 0.5) scroller.scrollTop += delta * 0.18;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [narrator.playing]);
 
   // Word-level highlight via the CSS Custom Highlight API — a Range over the
   // sentence span's single text node, never a DOM split (preserves the
@@ -498,6 +644,15 @@ export default function Reader({
         >
           {(narrator.supported ? narrator.playing : engine.playing) ? "❚❚" : "▶"}
         </button>
+        {narrating && !followScroll && (
+          <button
+            className={styles.recenterBtn}
+            onClick={recenter}
+            aria-label="Re-center on the line being read"
+          >
+            ↺ Re-center
+          </button>
+        )}
         {narrator.modelStatus === "loading" && (
           <span className={styles.engineStatus}>
             Loading voice… {Math.round(narrator.loadProgress * 100)}%
