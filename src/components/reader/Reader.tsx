@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import type { BlockData, HighlightData, DocStatus } from "@/lib/types";
+import type {
+  BlockData,
+  ChapterRef,
+  HighlightData,
+  DocStatus,
+} from "@/lib/types";
 import { BlockRenderer } from "./BlockRenderer";
+import ContentsMenu from "./ContentsMenu";
 import {
   useScrollEngine,
   stepSpeedValue,
@@ -43,6 +49,7 @@ export default function Reader({
   blocks,
   initialHighlights,
   lastReadSid,
+  toc,
 }: {
   docId: string;
   title: string;
@@ -51,6 +58,7 @@ export default function Reader({
   blocks: BlockData[];
   initialHighlights: HighlightData[];
   lastReadSid: string | null;
+  toc?: ChapterRef[];
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -129,6 +137,22 @@ export default function Reader({
   const narrating = narrator.playing || narrator.currentSid !== null;
   const activeSid = clickedSid ?? (narrating ? narrator.currentSid : current.sid);
 
+  // Contents menu (EPUBs with a table of contents). The current chapter is the
+  // last entry at-or-before the active sentence's block; -1 before the first.
+  const hasToc = !!toc && toc.length >= 2;
+  const [tocOpen, setTocOpen] = useState(false);
+  const currentChapter = useMemo(() => {
+    if (!toc || !activeSid) return -1;
+    const { block } = parseSid(activeSid);
+    if (!Number.isFinite(block)) return -1;
+    let idx = -1;
+    for (let i = 0; i < toc.length; i++) {
+      if (toc[i].block <= block) idx = i;
+      else break;
+    }
+    return idx;
+  }, [toc, activeSid]);
+
   // Hand control back to the narrator once it has reached the clicked sentence
   // (syncing to an external system — the narrator's own currentSid catching up).
   useEffect(() => {
@@ -196,6 +220,35 @@ export default function Reader({
         block: "center",
       });
   }, [narrator.currentSid]);
+
+  // Jump to a chapter from the contents menu. Scans forward to the chapter's
+  // first narratable sentence (image blocks render no sids). If narration is
+  // live it's redirected there; otherwise this only scrolls — opening the
+  // contents must never *start* audio.
+  const jumpToChapter = useCallback(
+    (entry: ChapterRef) => {
+      setTocOpen(false);
+      let sid: string | null = null;
+      for (let i = entry.block; i < blocks.length; i++) {
+        if (blocks[i].sentenceCount > 0) {
+          sid = `${blocks[i].index}:0`;
+          break;
+        }
+      }
+      if (!sid) return;
+      if (narrator.playing) {
+        jumpToSid(sid);
+        return;
+      }
+      contentRef.current
+        ?.querySelector<HTMLElement>(`[data-sid="${sid}"]`)
+        ?.scrollIntoView({
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+          block: "center",
+        });
+    },
+    [blocks, narrator.playing, jumpToSid]
+  );
 
   // One shared rate control feeds both the narrator and the scroll fallback.
   const changeRate = useCallback(
@@ -543,8 +596,17 @@ export default function Reader({
           return;
         }
         if (e.key === "Escape") {
+          // An open contents menu eats Escape — it must not also stop narration.
+          if (tocOpen) {
+            setTocOpen(false);
+            return;
+          }
           if (narrator.supported) narrator.stop();
           else engine.pause();
+          return;
+        }
+        if (e.key === "t" && hasToc) {
+          setTocOpen((o) => !o);
           return;
         }
         if (e.key >= "1" && e.key <= "4") {
@@ -615,7 +677,7 @@ export default function Reader({
       window.removeEventListener("keydown", onKey);
       if (chordState.timer) window.clearTimeout(chordState.timer);
     };
-  }, [engine, narrator, togglePlay, changeRate, doHighlight, removeCurrent]);
+  }, [engine, narrator, togglePlay, changeRate, doHighlight, removeCurrent, tocOpen, hasToc]);
 
   if (status !== "ready") {
     return (
@@ -642,9 +704,21 @@ export default function Reader({
       <style>{HIGHLIGHT_STYLE}</style>
 
       <header className={styles.bar}>
-        <Link href="/" className={styles.backLink}>
-          ← Shelf
-        </Link>
+        <div className={styles.barLeft}>
+          <Link href="/" className={styles.backLink}>
+            ← Shelf
+          </Link>
+          {toc && hasToc && (
+            <ContentsMenu
+              toc={toc}
+              open={tocOpen}
+              currentIndex={currentChapter}
+              onToggle={() => setTocOpen((o) => !o)}
+              onClose={() => setTocOpen(false)}
+              onSelect={jumpToChapter}
+            />
+          )}
+        </div>
         <div className={styles.barTitle}>
           <span>{title}</span>
           {author && <span className={styles.barAuthor}> · {author}</span>}

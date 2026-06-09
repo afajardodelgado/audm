@@ -9,6 +9,7 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
       { keys: ["↑", "+"], label: "Narrate faster" },
       { keys: ["↓", "−"], label: "Narrate slower" },
       { keys: ["Esc"], label: "Stop narration" },
+      { keys: ["t"], label: "Open / close the contents menu" },
     ],
   },
   {

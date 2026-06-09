@@ -15,15 +15,96 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 clamp(1rem, 3vw, 2.5rem);
-  z-index: 10;
+  /* One above the bottom toolbar so the open contents menu wins on short windows. */
+  z-index: 11;
   font-family: var(--font-display);
   font-size: 0.9rem;
   color: var(--ink-soft);
   background: linear-gradient(var(--paper) 60%, transparent);
 }
+.barLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
 .backLink:hover,
 .barShortcuts:hover {
   color: var(--ink);
+}
+
+/* ---- Contents menu (EPUB table of contents) --------------- */
+/* The library toolbar's dropdown pattern, on paper-theme tokens. Items keep
+   ≥44px targets (Fitts); the current chapter carries the gold seam + ✓ glyph
+   (Von Restorff — never colour alone). */
+.contentsWrap {
+  position: relative;
+}
+.contentsBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  border: none;
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+.contentsBtn:hover {
+  color: var(--ink);
+}
+.contentsMenu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 12;
+  width: min(20rem, 90vw);
+  max-height: min(60vh, 28rem);
+  overflow-y: auto;
+  list-style: none;
+  padding: 0.3rem;
+  background: var(--paper);
+  border: 1px solid var(--ink-faint);
+  border-radius: 4px;
+  box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.4);
+}
+.contentsItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.6rem;
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-radius: 2px;
+  transition: color 140ms ease, background 140ms ease;
+}
+.contentsItem:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+.contentsItemActive {
+  color: var(--ink);
+  border-left-color: var(--gold);
+  background: var(--gold-soft);
+}
+.contentsItemDeep {
+  padding-left: 1.8rem;
+}
+.contentsCheck {
+  flex: none;
+  width: 0.9rem;
+  color: var(--gold);
 }
 .barTitle {
   font-style: italic;

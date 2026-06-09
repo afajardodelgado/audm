@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma, LOCAL_USER_ID } from "@/lib/db";
 import Reader from "@/components/reader/Reader";
+import { tocFromMeta } from "@/lib/types";
 import type { BlockData, HighlightData } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -64,6 +65,7 @@ export default async function ReadPage({
       blocks={blocks}
       initialHighlights={highlights}
       lastReadSid={document.lastReadSid}
+      toc={tocFromMeta(document.meta)}
     />
   );
 }
