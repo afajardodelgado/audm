@@ -76,6 +76,14 @@ a {
   text-decoration: none;
 }
 
+/* Keyboard focus — the gold seam. :focus-visible only, so pointer clicks stay
+   clean while tab-focus is always findable (and never signalled by colour
+   alone: the outline adds a shape around the control). */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
 /* ---- Themes ---------------------------------------------- */
 
 /* The shelf / library — warm espresso, like the Stripe Press hero */

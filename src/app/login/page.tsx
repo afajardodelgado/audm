@@ -16,7 +16,7 @@ export default function LoginPage() {
           coming, so your books and notes can follow you.
         </p>
 
-        <form className={styles.form} aria-disabled>
+        <form className={styles.form}>
           <label className={styles.label}>
             Email
             <input

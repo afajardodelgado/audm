@@ -8,6 +8,7 @@ import {
   useCallback,
 } from "react";
 import type { HighlightData } from "@/lib/types";
+import { prefersReducedMotion } from "./useScrollEngine";
 import styles from "./Reader.module.css";
 
 interface Note {
@@ -131,7 +132,10 @@ export default function CommentOverlay({
       const span = contentRef.current?.querySelector<HTMLElement>(
         `[data-sid="${CSS.escape(n.startSid)}"]`
       );
-      span?.scrollIntoView({ behavior: "smooth", block: "center" });
+      span?.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: "center",
+      });
       if (narrow) setOpenId(n.id);
     },
     [notes, contentRef, narrow]

@@ -65,5 +65,5 @@
   border: 1px solid var(--taupe);
   border-radius: 3px;
   color: var(--parchment);
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--parchment) 4%, transparent);
 }

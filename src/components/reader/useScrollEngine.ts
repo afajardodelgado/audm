@@ -48,6 +48,16 @@ export function stepSpeedValue(mult: number, dir: 1 | -1): number {
   return SPEEDS[next];
 }
 
+// Whether the user's OS asks for reduced motion. Shared by every JS-driven
+// animation in the reader (auto-scroll, smooth jumps, the narration crawl) —
+// CSS `scroll-behavior: auto` can't override an explicit behavior:"smooth".
+export function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 export function useScrollEngine(
   scrollerRef: React.RefObject<HTMLElement | null>,
   wordCount: number
@@ -63,9 +73,7 @@ export function useScrollEngine(
   const reducedMotion = useRef(false);
 
   useEffect(() => {
-    reducedMotion.current =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    reducedMotion.current = prefersReducedMotion();
   }, []);
 
   const pxPerSec = useCallback(() => {
@@ -75,8 +83,15 @@ export function useScrollEngine(
     return ((BASE_WPM * speedRef.current) / 60) * pxPerWord;
   }, [scrollerRef, wordCount]);
 
-  const tick = useCallback(
-    (ts: number) => {
+  const play = useCallback(() => {
+    if (reducedMotion.current) return; // respect the user's OS setting
+    if (playingRef.current) return;
+    playingRef.current = true;
+    setPlaying(true);
+    lastTsRef.current = null;
+    // The loop is a local function (not a memoized callback) so it can re-arm
+    // itself without referencing a binding that doesn't exist yet at declaration.
+    const tick = (ts: number) => {
       const el = scrollerRef.current;
       if (!el || !playingRef.current) {
         rafRef.current = null;
@@ -101,20 +116,11 @@ export function useScrollEngine(
         }
       }
       rafRef.current = requestAnimationFrame(tick);
-    },
-    [scrollerRef, pxPerSec]
-  );
-
-  const play = useCallback(() => {
-    if (reducedMotion.current) return; // respect the user's OS setting
-    if (playingRef.current) return;
-    playingRef.current = true;
-    setPlaying(true);
-    lastTsRef.current = null;
+    };
     if (rafRef.current == null) {
       rafRef.current = requestAnimationFrame(tick);
     }
-  }, [tick]);
+  }, [scrollerRef, pxPerSec]);
 
   const pause = useCallback(() => {
     playingRef.current = false;

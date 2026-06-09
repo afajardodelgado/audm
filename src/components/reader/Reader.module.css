@@ -159,6 +159,8 @@ h3.numbered .blockNum {
 }
 
 /* ---- Toolbar --------------------------------------------- */
+/* Interactive controls keep a ≥44×44px (2.75rem) target — Fitts's law; small
+   glyphs are padded out to reach it rather than enlarged. */
 .toolbar {
   position: absolute;
   bottom: clamp(1rem, 4vh, 2rem);
@@ -166,8 +168,12 @@ h3.numbered .blockNum {
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding: 0.6rem 1.1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 0.25rem;
+  max-width: calc(100vw - 1.5rem);
+  gap: 1rem;
+  padding: 0.5rem 1rem;
   background: color-mix(in srgb, var(--paper) 88%, transparent);
   border: 1px solid var(--ink-faint);
   backdrop-filter: blur(8px);
@@ -175,14 +181,14 @@ h3.numbered .blockNum {
   font-family: var(--font-display);
 }
 .playBtn {
-  width: 2.1rem;
-  height: 2.1rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 1px solid var(--ink-soft);
   background: transparent;
   color: var(--ink);
   border-radius: 50%;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -213,20 +219,24 @@ h3.numbered .blockNum {
 .speed {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
   font-size: 0.9rem;
   color: var(--ink-soft);
 }
 .speed button {
-  width: 1.4rem;
-  height: 1.4rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 1px solid var(--ink-faint);
   background: transparent;
   color: var(--ink-soft);
   cursor: pointer;
+  transition: background 150ms ease;
+}
+.speed button:hover {
+  background: var(--gold-soft);
 }
 .speed span {
-  min-width: 4.5rem;
+  min-width: 3.5rem;
   text-align: center;
 }
 .engineStatus {
@@ -236,29 +246,43 @@ h3.numbered .blockNum {
 }
 .colors {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
+/* Each swatch is a full-size (44px) target; the visible dot stays small and
+   centred, and the active ring is drawn on the dot so the row stays calm. */
 .swatch {
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: none;
   border-radius: 50%;
-  border: 2px solid transparent;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
-.swatchOn {
-  border-color: var(--ink);
+.swatch::before {
+  content: "";
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  background: var(--swatch-color);
+}
+.swatchOn::before {
+  box-shadow: 0 0 0 2px var(--ink);
 }
 .sw_yellow {
-  background: var(--hl-yellow);
+  --swatch-color: var(--hl-yellow);
 }
 .sw_rose {
-  background: var(--hl-rose);
+  --swatch-color: var(--hl-rose);
 }
 .sw_blue {
-  background: var(--hl-blue);
+  --swatch-color: var(--hl-blue);
 }
 .sw_green {
-  background: var(--hl-green);
+  --swatch-color: var(--hl-green);
 }
 .chordHint {
   position: absolute;
@@ -277,7 +301,7 @@ h3.numbered .blockNum {
 .popoverBackdrop {
   position: absolute;
   inset: 0;
-  background: rgba(31, 30, 29, 0.18);
+  background: color-mix(in srgb, var(--ink) 18%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -373,7 +397,8 @@ h3.numbered .blockNum {
    card's text alignment. */
 .noteNav {
   display: flex;
-  gap: 0.4rem;
+  /* Wide enough that the two arrows' padded 44px hit areas never overlap. */
+  gap: 1.4rem;
   justify-content: flex-end;
   margin-top: 0.5rem;
 }
@@ -381,6 +406,7 @@ h3.numbered .blockNum {
   justify-content: flex-start;
 }
 .noteNavBtn {
+  position: relative;
   width: 1.5rem;
   height: 1.5rem;
   display: flex;
@@ -394,6 +420,12 @@ h3.numbered .blockNum {
   font-size: 0.85rem;
   line-height: 1;
   transition: background 150ms ease, color 150ms ease;
+}
+/* Pad the small glyph out to a 44px hit target without growing the card. */
+.noteNavBtn::after {
+  content: "";
+  position: absolute;
+  inset: -0.625rem;
 }
 .noteNavBtn:hover:not(:disabled) {
   background: var(--gold-soft);
@@ -424,12 +456,19 @@ h3.numbered .blockNum {
 }
 .noteMarker {
   display: block;
+  position: relative;
   width: 0.95rem;
   height: 0.95rem;
   border-radius: 50% 50% 50% 2px;
-  border: 1px solid rgba(0, 0, 0, 0.18);
+  border: 1px solid color-mix(in srgb, var(--ink) 18%, transparent);
   cursor: pointer;
   padding: 0;
+}
+/* Pad the dot out to a 44px tap target (it lives in a touch-width gutter). */
+.noteMarker::after {
+  content: "";
+  position: absolute;
+  inset: -0.9rem;
 }
 .noteDot_yellow { background: var(--hl-yellow); }
 .noteDot_rose { background: var(--hl-rose); }

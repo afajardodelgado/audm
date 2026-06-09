@@ -478,7 +478,7 @@
   flex: 1 1 auto;
   height: 3px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--parchment) 18%, transparent);
   overflow: hidden;
 }
 .fcBar span {

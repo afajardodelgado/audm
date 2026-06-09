@@ -42,18 +42,18 @@ export interface NarratorApi {
 }
 
 export function useNarrator(): NarratorApi {
+  // The engine is created in the mount effect (never during render — refs must
+  // not be written while rendering), so the first client render matches the
+  // server-rendered EMPTY_STATE and the API below no-ops until mount.
   const engineRef = useRef<NarratorEngine | null>(null);
-  if (engineRef.current === null && typeof window !== "undefined") {
-    engineRef.current = new KokoroNarrator();
-  }
-
-  const [state, setState] = useState<NarratorState>(
-    () => engineRef.current?.getState() ?? EMPTY_STATE
-  );
+  const [state, setState] = useState<NarratorState>(EMPTY_STATE);
 
   useEffect(() => {
-    const engine = engineRef.current;
-    if (!engine) return;
+    const engine = new KokoroNarrator();
+    engineRef.current = engine;
+    // Initial sync from an external system (the engine constructed just
+    // above) — same justified exception as in Reader.tsx.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(engine.getState());
     const unsub = engine.subscribe(setState);
     // Warm the model when the browser is idle so the first Play is instant. The

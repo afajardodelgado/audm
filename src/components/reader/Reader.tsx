@@ -4,7 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { BlockData, HighlightData, DocStatus } from "@/lib/types";
 import { BlockRenderer } from "./BlockRenderer";
-import { useScrollEngine, stepSpeedValue } from "./useScrollEngine";
+import {
+  useScrollEngine,
+  stepSpeedValue,
+  prefersReducedMotion,
+} from "./useScrollEngine";
 import { useCurrentLine } from "./useCurrentLine";
 import { useHighlights } from "./useHighlights";
 import { useNarrator } from "./useNarrator";
@@ -145,7 +149,10 @@ export default function Reader({
       if (!span) return;
       setClickedSid(sid);
       setFollowScroll(true); // jumping re-engages the follow-crawl
-      span.scrollIntoView({ behavior: "smooth", block: "center" });
+      span.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: "center",
+      });
       narrator.play(buildUnits(), sid);
     },
     [narrator, buildUnits]
@@ -180,7 +187,10 @@ export default function Reader({
     if (!sid) return;
     contentRef.current
       ?.querySelector<HTMLElement>(`[data-sid="${sid}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      ?.scrollIntoView({
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+        block: "center",
+      });
   }, [narrator.currentSid]);
 
   // One shared rate control feeds both the narrator and the scroll fallback.
@@ -378,6 +388,10 @@ export default function Reader({
     const content = contentRef.current;
     if (!scroller || !content) return;
 
+    // Under reduced motion the continuous easing crawl is replaced by an
+    // instant re-centre, taken only once the spoken line has drifted well away
+    // from the focus line — the text stays followable without constant motion.
+    const reduceMotion = prefersReducedMotion();
     let raf = 0;
     const tick = () => {
       if (!followScrollRef.current) {
@@ -405,7 +419,13 @@ export default function Reader({
         // How far to scroll so the target's midpoint sits at the focus line
         // (viewport centre), then ease a fraction of the way there.
         const delta = (rect.top + rect.bottom) / 2 - window.innerHeight / 2;
-        if (Math.abs(delta) > 0.5) scroller.scrollTop += delta * 0.18;
+        if (reduceMotion) {
+          if (Math.abs(delta) > window.innerHeight * 0.3) {
+            scroller.scrollTop += delta;
+          }
+        } else if (Math.abs(delta) > 0.5) {
+          scroller.scrollTop += delta * 0.18;
+        }
       }
       raf = requestAnimationFrame(tick);
     };
@@ -477,18 +497,22 @@ export default function Reader({
   });
 
   useEffect(() => {
+    // Snapshot the chord-state object (it's a stable container whose fields
+    // mutate) so the cleanup below doesn't read the ref at cleanup time.
+    const chordState = chordRef.current;
+
     const resetChord = () => {
-      chordRef.current.buf = "";
-      if (chordRef.current.timer) {
-        window.clearTimeout(chordRef.current.timer);
-        chordRef.current.timer = null;
+      chordState.buf = "";
+      if (chordState.timer) {
+        window.clearTimeout(chordState.timer);
+        chordState.timer = null;
       }
       setChord("");
     };
 
     const armReset = () => {
-      if (chordRef.current.timer) window.clearTimeout(chordRef.current.timer);
-      chordRef.current.timer = window.setTimeout(resetChord, CHORD_TIMEOUT_MS);
+      if (chordState.timer) window.clearTimeout(chordState.timer);
+      chordState.timer = window.setTimeout(resetChord, CHORD_TIMEOUT_MS);
     };
 
     const onKey = (e: KeyboardEvent) => {
@@ -498,7 +522,7 @@ export default function Reader({
         return;
 
       // Global single-key controls (only when no chord in progress).
-      if (!chordRef.current.buf) {
+      if (!chordState.buf) {
         if (e.code === "Space") {
           e.preventDefault();
           togglePlay();
@@ -532,10 +556,10 @@ export default function Reader({
 
       // Chord machine.
       const k = e.key.toLowerCase();
-      const buf = chordRef.current.buf;
+      const buf = chordState.buf;
 
       if (!buf && k === "c") {
-        chordRef.current.buf = "c";
+        chordState.buf = "c";
         setChord("c");
         armReset();
         e.preventDefault();
@@ -555,7 +579,7 @@ export default function Reader({
           return;
         }
         if (k === "d") {
-          chordRef.current.buf = "cd";
+          chordState.buf = "cd";
           setChord("c d");
           armReset();
           e.preventDefault();
@@ -585,7 +609,7 @@ export default function Reader({
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      if (chordRef.current.timer) window.clearTimeout(chordRef.current.timer);
+      if (chordState.timer) window.clearTimeout(chordState.timer);
     };
   }, [engine, narrator, togglePlay, changeRate, doHighlight, removeCurrent]);
 
