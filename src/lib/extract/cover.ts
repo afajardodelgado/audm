@@ -44,15 +44,23 @@ interface ManifestItem {
  * the extracted resources are still on disk.
  */
 export async function generateEpubCover(
-  epub: { getManifest: () => Record<string, ManifestItem> },
+  epub: {
+    getManifest: () => Record<string, ManifestItem>;
+    getMetadata: () => { metas?: Record<string, string> };
+  },
   resourceSaveDir: string
 ): Promise<Buffer | null> {
   try {
     const items = Object.values(epub.getManifest());
     const images = items.filter((m) => /^image\//i.test(m.mediaType));
     if (!images.length) return null;
+    // EPUB2 declares the cover as <meta name="cover" content="manifest-id">.
+    const coverId = epub.getMetadata().metas?.["cover"];
     const cover =
       images.find((m) => (m.properties ?? "").includes("cover-image")) ??
+      (coverId
+        ? images.find((m) => m.id === coverId || m.href === coverId)
+        : undefined) ??
       images.find((m) => /(^|[_\-/])cover/i.test(m.href) || /cover/i.test(m.id)) ??
       images[0]; // last resort: the first image in the book
     const onDisk = resolve(resourceSaveDir, cover.href.replace(/\//g, "_"));

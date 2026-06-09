@@ -49,17 +49,23 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
 
   let title = "";
   let author: string | undefined;
+  let book: BookInfo | undefined;
   try {
     const meta = epub.getMetadata();
     title = meta.title?.trim() ?? "";
     const creator = meta.creator?.[0];
     if (creator) author = (creator.contributor ?? "").toString().trim() || undefined;
+    book = bookInfo(meta);
   } catch {
     /* metadata optional */
   }
 
   const spine = epub.getSpine();
   const walked: ExtractedBlock[] = [];
+  // Each spine item's first block index in `walked` — pre-materialization.
+  // Non-linear, unloadable, and empty chapters are simply never recorded, so
+  // TOC entries pointing at them drop out naturally.
+  const chapterStarts: { id: string; start: number }[] = [];
 
   for (const item of spine) {
     // linear="no" items are supplementary (e.g. cover art) — skip.
@@ -71,7 +77,10 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
       continue;
     }
     if (!chapter?.html) continue;
-    walked.push(...htmlToBlocks(chapter.html, { images: true }));
+    const chapterBlocks = htmlToBlocks(chapter.html, { images: true });
+    if (!chapterBlocks.length) continue;
+    chapterStarts.push({ id: item.id, start: walked.length });
+    walked.push(...chapterBlocks);
   }
 
   // Materialize image blocks while the parser's extracted resources are still
@@ -82,7 +91,11 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
   // block indexes stay contiguous — the asset filename embeds that final index
   // plus a content hash (so immutable-cached URLs can't go stale).
   const blocks: ExtractedBlock[] = [];
+  // walkedToFinal[w] = the final index of the first SURVIVING block at-or-after
+  // walked index w — remaps chapter starts past any dropped image blocks.
+  const walkedToFinal: number[] = [];
   for (const b of walked) {
+    walkedToFinal.push(blocks.length);
     if (b.type !== "image") {
       blocks.push(b);
       continue;
@@ -118,6 +131,12 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
     });
   }
 
+  walkedToFinal.push(blocks.length); // end sentinel
+
+  // Map the book's table of contents onto final block indexes (needs the live
+  // parser for getToc/resolveHref, so it runs before destroy()).
+  const toc = buildEpubToc(epub, chapterStarts, walkedToFinal, blocks.length);
+
   // Read the cover while the parser's extracted resources are still on disk.
   const coverImage = (await generateEpubCover(epub, resourceDir)) ?? undefined;
 
@@ -132,7 +151,11 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
     author,
     blocks,
     wordCount,
-    meta: { chapters: spine.length },
+    meta: {
+      chapters: spine.length,
+      ...(toc ? { toc } : {}),
+      ...(book ? { book } : {}),
+    },
     needsOcr: false,
     coverImage,
   };
@@ -141,6 +164,135 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
 // A short non-crypto id for the per-extraction temp dir.
 function randomId(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+}
+
+type EpubFile = Awaited<ReturnType<typeof initEpubFile>>;
+
+// Table-of-contents guards: cap label length and total entries so one
+// pathological book can't bloat Document.meta or the contents menu.
+const TOC_LABEL_MAX = 120;
+const MAX_TOC_ENTRIES = 500;
+
+interface TocPoint {
+  label: string;
+  href: string;
+  children?: TocPoint[];
+}
+
+/**
+ * Map the EPUB's table of contents (NCX navMap — the parser doesn't read the
+ * EPUB3 nav doc, so nav-only books yield none and the reader hides the menu)
+ * onto final block indexes. Chapter starts were recorded against
+ * pre-materialization "walked" indexes; walkedToFinal remaps them past dropped
+ * image blocks. Entries are flattened with depth capped at 1, resolved to
+ * their spine item via resolveHref, deduped to one per block (the
+ * chapter-level entry wins over its fragment children), and only a list of 2+
+ * is worth a menu.
+ */
+function buildEpubToc(
+  epub: EpubFile,
+  chapterStarts: { id: string; start: number }[],
+  walkedToFinal: number[],
+  totalBlocks: number
+): { label: string; block: number; depth: number }[] | undefined {
+  // A chapter empty after materialization can't anchor an entry.
+  const startById = new Map<string, number>();
+  for (let i = 0; i < chapterStarts.length; i++) {
+    const start = walkedToFinal[chapterStarts[i].start];
+    const next =
+      i + 1 < chapterStarts.length
+        ? walkedToFinal[chapterStarts[i + 1].start]
+        : totalBlocks;
+    if (start < next) startById.set(chapterStarts[i].id, start);
+  }
+
+  const out: { label: string; block: number; depth: number }[] = [];
+  const visit = (points: TocPoint[], depth: number) => {
+    for (const p of points) {
+      const label = normalizeWhitespace(p.label ?? "").slice(0, TOC_LABEL_MAX);
+      if (label) {
+        let block: number | undefined;
+        try {
+          const resolved = epub.resolveHref(p.href);
+          if (resolved) block = startById.get(resolved.id);
+        } catch {
+          /* unresolvable entry — skip it */
+        }
+        if (block !== undefined && block < totalBlocks) {
+          out.push({ label, block, depth: Math.min(depth, 1) });
+        }
+      }
+      if (p.children?.length) visit(p.children, depth + 1);
+    }
+  };
+  try {
+    visit(epub.getToc() ?? [], 0);
+  } catch {
+    return undefined;
+  }
+
+  out.sort((a, b) => a.block - b.block); // stable — document order kept per block
+  const deduped = out.filter((e, i) => i === 0 || e.block !== out[i - 1].block);
+  const capped = deduped.slice(0, MAX_TOC_ENTRIES);
+  return capped.length >= 2 ? capped : undefined;
+}
+
+const DESCRIPTION_MAX = 600;
+
+// A type alias (not an interface) so it satisfies Prisma's InputJsonValue,
+// which requires an implicit index signature.
+type BookInfo = {
+  language?: string;
+  publisher?: string;
+  description?: string;
+  year?: number;
+};
+
+// Publisher descriptions often arrive with embedded markup and numeric
+// entities (sometimes double-encoded); flatten to clean prose and cap it.
+function cleanDescription(raw: string): string {
+  const text = raw
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)));
+  return normalizeWhitespace(text).slice(0, DESCRIPTION_MAX);
+}
+
+// First plausible publication year across the metadata's date fields. Never
+// dcterms:modified — that's the file's revision date, not the book's.
+function publicationYear(meta: {
+  date?: Record<string, string>;
+  metas?: Record<string, string>;
+}): number | undefined {
+  const candidates = [
+    meta.date?.publication,
+    ...Object.values(meta.date ?? {}),
+    meta.metas?.["dcterms:date"],
+    meta.metas?.["dcterms:issued"],
+  ];
+  for (const c of candidates) {
+    if (typeof c !== "string") continue;
+    const m = c.match(/\b(\d{4})\b/);
+    if (m) return Number(m[1]);
+  }
+  return undefined;
+}
+
+/** The book-level metadata worth keeping on Document.meta (all optional). */
+function bookInfo(meta: ReturnType<EpubFile["getMetadata"]>): BookInfo | undefined {
+  const language =
+    typeof meta.language === "string" ? meta.language.trim() : "";
+  const publisher =
+    typeof meta.publisher === "string" ? meta.publisher.trim() : "";
+  const description =
+    typeof meta.description === "string" ? cleanDescription(meta.description) : "";
+  const year = publicationYear(meta);
+  if (!language && !publisher && !description && !year) return undefined;
+  return {
+    ...(language ? { language } : {}),
+    ...(publisher ? { publisher } : {}),
+    ...(description ? { description } : {}),
+    ...(year ? { year } : {}),
+  };
 }
 
 export function htmlToBlocks(
