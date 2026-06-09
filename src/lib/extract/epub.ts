@@ -148,11 +148,14 @@ export function htmlToBlocks(
   opts?: { images?: boolean }
 ): ExtractedBlock[] {
   const $ = cheerio.load(html);
-  // With images on (EPUB), keep <figure>/<img> in the tree and walk <img> as a
-  // block; otherwise (web imports) strip them as before. <svg> always goes.
+  // With images on (EPUB chapters), keep <figure>/<img> in the tree and walk
+  // <img> as a block — and keep <header>, which in book XHTML is sectioning
+  // content wrapping the chapter title (an <h1> we must not lose). On web
+  // imports <header> is site chrome, so it stays stripped there along with
+  // figures/images. <svg> always goes.
   $(
     opts?.images
-      ? "script, style, nav, header, footer, svg"
+      ? "script, style, nav, footer, svg"
       : "script, style, nav, header, footer, figure, img, svg"
   ).remove();
 
