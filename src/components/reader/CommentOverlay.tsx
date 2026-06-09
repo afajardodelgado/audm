@@ -15,6 +15,7 @@ interface Note {
   id: string;
   startSid: string; // anchor sentence — used to jump/scroll to the comment
   top: number; // natural px top relative to the scroller, before collision fixup
+  left: number; // centre x of this note's margin gutter (card is translateX(-50%))
   side: "left" | "right"; // which margin this note sits in
   comments: HighlightData["comments"];
   color: string;
@@ -64,6 +65,19 @@ export default function CommentOverlay({
     if (!content || !scroller) return;
     const scrollerTop = scroller.getBoundingClientRect().top;
 
+    // Measure the real text-column edges (the centred article box minus its
+    // side padding — the column width is font-relative, so it can't be assumed
+    // in CSS). Each card centres in its margin gutter: the left gutter spans
+    // viewport-left → text start, the right one text end → viewport-right.
+    const contentRect = content.getBoundingClientRect();
+    const contentStyle = getComputedStyle(content);
+    const textLeft = contentRect.left + parseFloat(contentStyle.paddingLeft);
+    const textRight = contentRect.right - parseFloat(contentStyle.paddingRight);
+    const gutterCenter = {
+      left: textLeft / 2,
+      right: (textRight + window.innerWidth) / 2,
+    };
+
     // Resolve each commented highlight to its on-screen vertical position, drop
     // any whose start sentence isn't rendered, then order top-to-bottom so the
     // left/right alternation reads naturally down the page.
@@ -82,7 +96,7 @@ export default function CommentOverlay({
           color: h.color,
         };
       })
-      .filter((n): n is Omit<Note, "side"> => n !== null)
+      .filter((n): n is Omit<Note, "side" | "left"> => n !== null)
       .sort((a, b) => a.top - b.top);
 
     // Assign alternating sides, then push same-side cards down so they don't
@@ -99,7 +113,7 @@ export default function CommentOverlay({
         const h = cardRefs.current.get(n.id)?.offsetHeight ?? 0;
         const top = Math.max(n.top, bottoms[side] + STACK_GAP);
         bottoms[side] = top + h;
-        return { ...n, side, top };
+        return { ...n, side, top, left: gutterCenter[side] };
       })
     );
   }, [highlights, contentRef, scrollerRef]);
@@ -205,7 +219,7 @@ export default function CommentOverlay({
           className={`${styles.noteCard} ${
             n.side === "left" ? styles.noteLeft : styles.noteRight
           } ${styles[`noteAccent_${n.color}`]}`}
-          style={{ top: n.top }}
+          style={{ top: n.top, left: n.left }}
         >
           {n.comments.map((c) => (
             <p key={c.id}>{c.body}</p>

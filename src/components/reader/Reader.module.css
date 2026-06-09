@@ -356,9 +356,11 @@ h3.numbered .blockNum {
 }
 
 /* ---- Margin comments (Word / Google-Docs style) ---------- */
-/* Cards sit in the empty space beside the centred reading column (max-width
-   --measure ≈ 66ch, so ~21rem each side of centre), aligned to their highlight
-   and alternating margins. `top` is set inline from the highlight's live rect. */
+/* Cards sit in the empty space beside the centred reading column, aligned to
+   their highlight and alternating margins. `top` and `left` are set inline by
+   CommentOverlay from live measurements: `left` is the centre of the card's
+   margin gutter (viewport edge ↔ text edge), and the translate centres the
+   card on it. */
 .noteCard {
   position: absolute;
   width: clamp(11rem, 16vw, 15rem);
@@ -373,16 +375,15 @@ h3.numbered .blockNum {
   color: var(--ink);
   z-index: 7;
 }
+/* The transform lives on the side classes (not .noteCard) so the narrow-mode
+   .notePopover, which also extends .noteCard but anchors right: 0, is unmoved. */
 .noteRight {
-  left: calc(50% + 21rem);
-  right: 1.25rem;
+  transform: translateX(-50%);
   text-align: right;
   border-left-width: 3px;
 }
 .noteLeft {
-  right: calc(50% + 21rem);
-  /* clear the progress rail / hamburger pinned to the far left */
-  left: 2.75rem;
+  transform: translateX(-50%);
   text-align: right;
   border-right-width: 3px;
 }
