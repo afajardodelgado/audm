@@ -31,12 +31,16 @@ src/
 │       └── files/[id]/cover/route.ts     # GET cover thumbnail
 │
 ├── components/
-│   ├── library/                  # Shelf UI
+│   ├── library/                  # Shelf UI (styles: Shelf.module.css, shared by the group)
 │   │   ├── Shelf.tsx             # Library view; polls for status while extracting
+│   │   ├── LibraryToolbar.tsx    # Search · add · Status/Type/Sort filters · view toggle
+│   │   ├── filterShelf.ts        # Filter/sort options + the pure shelf-filtering logic
 │   │   ├── FlipCard.tsx          # One book card (cover, status, actions)
+│   │   ├── RegisterRow.tsx       # One list-view ("register") row
+│   │   ├── bindings.ts           # Deterministic book-cloth colour binding per document
 │   │   ├── UploadDropzone.tsx    # Drag-drop file upload → /api/upload
 │   │   └── ImportPanel.tsx       # Paste-text / URL import → /api/import
-│   └── reader/                   # Reader UI
+│   └── reader/                   # Reader UI (styles: Reader.module.css, shared by the group)
 │       ├── Reader.tsx            # Orchestrator: scroll, narration, highlights, chords
 │       ├── BlockRenderer.tsx     # Renders a block with per-sentence data-sid spans
 │       ├── ProgressRail.tsx      # Visual reading-progress bar
@@ -65,7 +69,8 @@ src/
 │   │   └── KokoroNarrator.ts     # In-browser neural TTS implementation
 │   └── (no auth client yet)      # Auth dormant; Supabase client added when enabled
 │
-├── middleware.ts                 # Pass-through today; auth refresh goes here later
+├── proxy.ts                      # Pass-through today (Next 16 proxy, formerly middleware.ts); auth refresh goes here later
+├── instrumentation.ts            # Boot hook: fails documents stranded mid-extraction by a restart
 └── generated/prisma/             # Generated Prisma client (do not edit / lint)
 ```
 
@@ -98,7 +103,7 @@ ocr_needed ──► ocr_running ──► ready       (user triggers OCR)
                           └──► failed
 ```
 
-The shelf polls `GET /api/documents` while any document is in a non-terminal state and updates the card when it reaches `ready`/`failed`.
+The shelf polls `GET /api/documents` while any document is in a non-terminal state and updates the card when it reaches `ready`/`failed`. Because extraction runs fire-and-forget in the server process, a restart mid-run would strand a document in a non-terminal status forever — so at boot `src/instrumentation.ts` marks any `pending`/`extracting`/`ocr_running` documents `failed` with a retry message.
 
 ### Database access
 
@@ -204,8 +209,8 @@ All routes run on the Node.js runtime. Success/error bodies are JSON unless note
 | Method | Path | Body | Success | Errors |
 | --- | --- | --- | --- | --- |
 | GET | `/api/highlights?documentId=…` | — | `200 { highlights: (Highlight & { comments })[] }` | `400` missing `documentId` |
-| POST | `/api/highlights` | `{ documentId, startSid, endSid, startOffset, endOffset, exactText, prefix?, suffix?, color?, comment? }` | `201 { highlight }` (optional `comment` creates the first comment) | `400` invalid |
-| PATCH | `/api/highlights/[id]` | `{ color }` | `200 { highlight }` | `404` not found |
+| POST | `/api/highlights` | `{ documentId, startSid, endSid, startOffset, endOffset, exactText, prefix?, suffix?, color?, comment? }` | `201 { highlight }` (optional `comment` creates the first comment) | `400` invalid (incl. unknown `color`) · `404` document not found |
+| PATCH | `/api/highlights/[id]` | `{ color }` | `200 { highlight }` | `400` invalid color · `404` not found |
 | DELETE | `/api/highlights/[id]` | — | `200 { ok: true }` (cascades comments) | `404` not found |
 | POST | `/api/comments` | `{ highlightId, body }` | `201 { comment }` | `400` missing fields · `404` highlight not found |
 | PATCH | `/api/comments/[id]` | `{ body }` | `200 { comment }` | `400` empty body · `404` not found |
