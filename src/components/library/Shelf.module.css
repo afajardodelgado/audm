@@ -529,7 +529,7 @@
 }
 .regLink {
   display: grid;
-  grid-template-columns: 4px auto 1fr auto auto;
+  grid-template-columns: 4px auto 1fr auto auto auto;
   align-items: center;
   gap: 0.9rem;
   padding: 0.85rem 2.4rem 0.85rem 0;
@@ -579,6 +579,18 @@ a.regLink:hover {
   color: var(--ink-soft);
   justify-self: end;
   white-space: nowrap;
+}
+/* Imprint (publisher · year) — quieter than the reading metrics so the gold
+   progress stays the row's single emphasis (Von Restorff). */
+.regImprint {
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  justify-self: end;
+  white-space: nowrap;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .regProgress,
 .regStatus {
@@ -839,7 +851,8 @@ a.regLink:hover {
     grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
     gap: 1rem;
   }
-  .regAuthor {
+  .regAuthor,
+  .regImprint {
     display: none;
   }
   .regLink {

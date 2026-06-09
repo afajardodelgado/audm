@@ -1,5 +1,6 @@
 import { prisma, LOCAL_USER_ID } from "@/lib/db";
 import Shelf from "@/components/library/Shelf";
+import { bookFromMeta } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +18,16 @@ export default async function Home() {
       readingProgress: true,
       hasCover: true,
       createdAt: true,
+      meta: true,
     },
   });
 
-  // Serialize dates for the client component.
-  const initial = documents.map((d) => ({
+  // Serialize dates and derive the imprint fields; meta itself (which carries
+  // the full EPUB table of contents) never ships to the client.
+  const initial = documents.map(({ meta, ...d }) => ({
     ...d,
     createdAt: d.createdAt.toISOString(),
+    ...bookFromMeta(meta),
   }));
 
   return <Shelf initial={initial} />;

@@ -52,12 +52,17 @@ export default function RegisterRow({
       <span className={styles.regStatus}>{STATUS_LABEL[doc.status]}</span>
     );
 
+  // Imprint (EPUB book metadata). Rendered even when empty so every row keeps
+  // the same grid tracks and the columns stay aligned down the register.
+  const imprint = [doc.publisher, doc.year].filter(Boolean).join(" · ");
+
   const inner = (
     <>
       <span className={styles.regSpine} style={spineVar} aria-hidden />
       <span className={styles.regType}>{doc.sourceType.toUpperCase()}</span>
       <span className={styles.regTitle}>{doc.title}</span>
       {doc.author && <span className={styles.regAuthor}>{doc.author}</span>}
+      <span className={styles.regImprint}>{imprint}</span>
       <span className={styles.regMeta}>{meta}</span>
     </>
   );

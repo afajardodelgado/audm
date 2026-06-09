@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma, LOCAL_USER_ID } from "@/lib/db";
+import { bookFromMeta } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,12 @@ export async function GET() {
       readingProgress: true,
       hasCover: true,
       createdAt: true,
+      meta: true,
     },
   });
-  return NextResponse.json({ documents });
+  // Derive the card's imprint fields server-side; meta itself (which carries
+  // the full EPUB table of contents) never ships to the shelf.
+  return NextResponse.json({
+    documents: documents.map(({ meta, ...d }) => ({ ...d, ...bookFromMeta(meta) })),
+  });
 }

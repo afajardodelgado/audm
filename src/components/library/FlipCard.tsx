@@ -47,6 +47,9 @@ export default function FlipCard({
     "--coverImg": doc.hasCover ? `url(/api/files/${doc.id}/cover)` : "none",
   } as CSSProperties;
 
+  // Imprint line (EPUB book metadata) — quiet identity detail on the back.
+  const imprint = [doc.publisher, doc.year].filter(Boolean).join(" · ");
+
   const front = (
     <span className={styles.fcFront}>
       <span
@@ -73,6 +76,7 @@ export default function FlipCard({
       <span className={styles.fcType}>{doc.sourceType.toUpperCase()}</span>
       <span className={styles.fcTitle}>{doc.title}</span>
       {doc.author && <span className={styles.fcAuthor}>{doc.author}</span>}
+      {imprint && <span className={styles.fcMeta}>{imprint}</span>}
       <span className={styles.fcSpacer} />
       {isReady ? (
         <>
