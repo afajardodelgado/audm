@@ -82,16 +82,20 @@ When changing the schema:
 
 1. Edit `prisma/schema.prisma`.
 2. Locally, run `npm run db:push` to sync the change into `dev.db` (SQLite).
-3. Generate the matching **Postgres** migration for production:
+3. Generate the matching **Postgres** migration for production. Diff the
+   committed schema against the edited one, both flipped to the Postgres
+   provider — (`--from-migrations` would need a `shadowDatabaseUrl` under
+   Prisma 7, so we diff schema→schema instead; this assumes the schema edit
+   isn't committed yet):
    ```bash
-   DATABASE_PROVIDER=postgresql node scripts/set-db-provider.mjs
-   npx prisma migrate diff \
-     --from-migrations prisma/migrations \
-     --to-schema prisma/schema.prisma \
-     --script > prisma/migrations/$(date +%Y%m%d%H%M%S)_<change>/migration.sql
-   node scripts/set-db-provider.mjs   # restore sqlite locally
+   mkdir -p prisma/migrations/$(date +%Y%m%d%H%M%S)_<change>
+   git show HEAD:prisma/schema.prisma | sed 's/provider = "sqlite"/provider = "postgresql"/' > /tmp/old.prisma
+   sed 's/provider = "sqlite"/provider = "postgresql"/' prisma/schema.prisma > /tmp/new.prisma
+   npx prisma migrate diff --from-schema /tmp/old.prisma --to-schema /tmp/new.prisma \
+     --script > prisma/migrations/<the folder you created>/migration.sql
    ```
-   (Create the timestamped folder first.) Commit the new migration. It's applied in production by `prisma migrate deploy` (run via `start:railway`).
+   Inspect the SQL, then commit the new migration with the schema change. It's
+   applied in production by `prisma migrate deploy` (run via `start:railway`).
 
 ## Deployment (Railway)
 
