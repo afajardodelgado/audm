@@ -28,7 +28,8 @@ src/
 │       ├── comments/route.ts             # POST add comment
 │       ├── comments/[id]/route.ts        # PATCH body / DELETE
 │       ├── files/[id]/route.ts           # GET original file stream
-│       └── files/[id]/cover/route.ts     # GET cover thumbnail
+│       ├── files/[id]/cover/route.ts     # GET cover thumbnail
+│       └── files/[id]/images/[asset]/route.ts # GET inline image asset (EPUB figures)
 │
 ├── components/
 │   ├── library/                  # Shelf UI (styles: Shelf.module.css, shared by the group)
@@ -88,7 +89,7 @@ User 1──* Document 1──* Block
 
 - **User** — placeholder owner. Pre-auth, everything belongs to the synthetic `local` user; once Supabase auth is enabled, `id` mirrors the auth uid. Cascades to documents/highlights/comments.
 - **Document** — one imported source. Key fields: `sourceType` (`pdf|epub|text|web`), `filePath` (on the volume), `fileHash` (sha256, dedupe/cache key), `status` (lifecycle below), `wordCount`, `meta` (JSON — page count, spine info, etc.), `lastReadSid` + `readingProgress` (progress), `hasCover`. Indexed on `userId` and `fileHash`.
-- **Block** — one paragraph / heading / blockquote / listitem in reading order. `index` is 0-based; `(documentId, index)` is unique. `text` is normalized plain text; `sentenceCount` is computed at extraction time. **There is no Sentence table** — sentences are derived deterministically at render time (see anchoring).
+- **Block** — one paragraph / heading / blockquote / listitem / image in reading order. `index` is 0-based; `(documentId, index)` is unique. `text` is normalized plain text; `sentenceCount` is computed at extraction time. **There is no Sentence table** — sentences are derived deterministically at render time (see anchoring). **Image blocks** (EPUB figures) carry `src` (asset filename `{index}-{sha8}.{ext}` under the document's `{docId}.img` volume dir), probed `width`/`height` for layout reservation, alt/caption text in `text`, and always `sentenceCount: 0` — they render no sentence spans, so narration, the current-line observer, and highlights skip them.
 - **Highlight** — a W3C-style anchor: `startSid`/`endSid` (`"blockIndex:sentenceIndex"`), `startOffset`/`endOffset`, `exactText`, and `prefix`/`suffix` (~32 chars of context for fuzzy re-anchoring), plus `color`.
 - **Comment** — free text attached to a highlight.
 
@@ -124,7 +125,7 @@ The job of extraction is: **source bytes → ordered, sentence-counted `Block`s 
 
 **Format parsers**, each producing an `ExtractResult` (`{ title, author?, blocks, wordCount, meta, needsOcr, coverImage? }`):
 - **`pdf.ts`** — `unpdf` text runs → glyph-geometry line reconstruction → paragraph inference (gap/indent heuristics, de-hyphenation), with running-head/footer and page-number stripping. If there's essentially no text layer it returns `needsOcr: true`. Generates a cover from page 1.
-- **`epub.ts`** — `@lingo-reader/epub-parser` for spine (reading order) + metadata; each chapter's HTML is walked by `htmlToBlocks` (cheerio) into paragraph/heading/blockquote/listitem blocks. Reads the cover from the EPUB manifest.
+- **`epub.ts`** — `@lingo-reader/epub-parser` for spine (reading order) + metadata; each chapter's HTML is walked by `htmlToBlocks` (cheerio) into paragraph/heading/blockquote/listitem blocks — plus, for EPUBs only (`{ images: true }`), inline **image blocks**: each `<img>` is read from the parser's extracted resources, kept if it's a real raster figure (jpeg/png/gif/webp, not a tiny spacer; SVG skipped), content-hashed, dimension-probed, and carried as bytes to `persistResult`, which writes the assets under `{docId}.img/` on the volume. Reads the cover from the EPUB manifest.
 - **`text.ts`** — `textToBlocks` splits pasted text on blank lines into paragraphs; `textToResult` wraps it. Also used as the OCR text assembler.
 - **`url.ts`** — fetches the page, runs Mozilla Readability over a `linkedom` DOM, then reuses `htmlToBlocks` on the cleaned article (falling back to plain text). Returns the cleaned source text so it can be stored.
 - **`ocr.ts`** — renders each PDF page to a PNG (`@napi-rs/canvas`) and recognizes text with a single reused tesseract.js worker, then assembles via `textToBlocks`.
@@ -222,5 +223,6 @@ All routes run on the Node.js runtime. Success/error bodies are JSON unless note
 | --- | --- | --- | --- |
 | GET | `/api/files/[id]` | `200` original file stream (`application/pdf` or `application/epub+zip`) | `404` not found |
 | GET | `/api/files/[id]/cover` | `200` cover image (type sniffed from magic bytes; cached immutably) | `404` no cover |
+| GET | `/api/files/[id]/images/[asset]` | `200` inline image asset (type sniffed; cached immutably — the filename embeds a content hash) | `404` unknown document / malformed asset name / missing file |
 
 `DocumentSummary` / `Block` / `Highlight` / `Comment` client shapes are in [`src/lib/types.ts`](./src/lib/types.ts) (dates as ISO strings).

@@ -39,6 +39,7 @@ enum BlockType {
   heading
   blockquote
   listitem
+  image
 }
 
 // Placeholder user. Pre-auth, everything is owned by the synthetic "local" user.
@@ -79,7 +80,7 @@ model Document {
   @@index([fileHash])
 }
 
-// One paragraph / heading / quote, in reading order.
+// One paragraph / heading / quote / inline image, in reading order.
 model Block {
   id            String    @id @default(uuid())
   documentId    String
@@ -87,8 +88,14 @@ model Block {
   index         Int // 0-based reading order
   type          BlockType @default(paragraph)
   level         Int? // heading level 1-6
-  text          String // clean plain text (ligatures/soft-hyphens normalized)
-  sentenceCount Int       @default(0)
+  text          String // clean plain text; for image blocks, the alt/caption text
+  sentenceCount Int       @default(0) // always 0 for image blocks (no narration sids)
+  // Image blocks only: asset filename ("{index}-{sha8}.{ext}") under the
+  // document's {docId}.img dir, plus intrinsic px dimensions for layout
+  // reservation (null when probing failed).
+  src    String?
+  width  Int?
+  height Int?
 
   @@unique([documentId, index])
   @@index([documentId])

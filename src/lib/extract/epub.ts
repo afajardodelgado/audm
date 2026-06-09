@@ -1,11 +1,13 @@
 import { initEpubFile } from "@lingo-reader/epub-parser";
 import * as cheerio from "cheerio";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { rm } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import type { ExtractResult, ExtractedBlock } from "./types";
 import { countBlocksWords, normalizeWhitespace } from "./segment";
 import { generateEpubCover } from "./cover";
+import { sniffImageType } from "@/lib/storage";
 
 const BLOCK_TAGS = new Set([
   "p",
@@ -18,6 +20,20 @@ const BLOCK_TAGS = new Set([
   "blockquote",
   "li",
 ]);
+
+// Inline-image guards: drop spacer/ornament images (1-px gifs, flourishes)
+// while keeping real figures.
+const MIN_IMAGE_BYTES = 1024;
+const MIN_IMAGE_DIM = 24; // px, applied only when dimensions could be probed
+
+// Served asset extension per sniffed type; anything else (notably SVG, which is
+// unsniffable XML and an XSS risk if served for direct navigation) is dropped.
+const IMAGE_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+};
 
 /**
  * Extract paragraph-segmented blocks from an EPUB. EPUB is already reflowable
@@ -43,7 +59,7 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
   }
 
   const spine = epub.getSpine();
-  const blocks: ExtractedBlock[] = [];
+  const walked: ExtractedBlock[] = [];
 
   for (const item of spine) {
     // linear="no" items are supplementary (e.g. cover art) — skip.
@@ -55,7 +71,51 @@ export async function extractEpub(data: Buffer): Promise<ExtractResult> {
       continue;
     }
     if (!chapter?.html) continue;
-    blocks.push(...htmlToBlocks(chapter.html));
+    walked.push(...htmlToBlocks(chapter.html, { images: true }));
+  }
+
+  // Materialize image blocks while the parser's extracted resources are still
+  // on disk: read each image's bytes (loadChapter rewrote <img src> to absolute
+  // paths in resourceDir), keep only real raster figures, and carry the bytes
+  // on the block to persistResult, which knows the document identity and saves
+  // them on the volume. A block that fails any step is dropped so the final
+  // block indexes stay contiguous — the asset filename embeds that final index
+  // plus a content hash (so immutable-cached URLs can't go stale).
+  const blocks: ExtractedBlock[] = [];
+  for (const b of walked) {
+    if (b.type !== "image") {
+      blocks.push(b);
+      continue;
+    }
+    if (!b.src) continue;
+    let data: Buffer;
+    try {
+      data = await readFile(b.src);
+    } catch {
+      continue; // resource missing from the archive — drop the block
+    }
+    const ext = IMAGE_EXT[sniffImageType(data)];
+    if (!ext || data.length < MIN_IMAGE_BYTES) continue;
+    let width: number | undefined;
+    let height: number | undefined;
+    try {
+      const { loadImage } = await import("@napi-rs/canvas");
+      const img = await loadImage(data);
+      width = img.width;
+      height = img.height;
+      if (Math.min(width, height) < MIN_IMAGE_DIM) continue;
+    } catch {
+      /* dimensions are a layout hint only — keep the image without them */
+    }
+    const sha8 = createHash("sha256").update(data).digest("hex").slice(0, 8);
+    blocks.push({
+      type: "image",
+      text: b.text,
+      src: `${blocks.length}-${sha8}.${ext}`,
+      width,
+      height,
+      data,
+    });
   }
 
   // Read the cover while the parser's extracted resources are still on disk.
@@ -83,17 +143,47 @@ function randomId(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-export function htmlToBlocks(html: string): ExtractedBlock[] {
+export function htmlToBlocks(
+  html: string,
+  opts?: { images?: boolean }
+): ExtractedBlock[] {
   const $ = cheerio.load(html);
-  $("script, style, nav, header, footer, figure, img, svg").remove();
+  // With images on (EPUB), keep <figure>/<img> in the tree and walk <img> as a
+  // block; otherwise (web imports) strip them as before. <svg> always goes.
+  $(
+    opts?.images
+      ? "script, style, nav, header, footer, svg"
+      : "script, style, nav, header, footer, figure, img, svg"
+  ).remove();
 
   const out: ExtractedBlock[] = [];
-  const selector = Array.from(BLOCK_TAGS).join(",");
+  const selector =
+    Array.from(BLOCK_TAGS).join(",") + (opts?.images ? ",img" : "");
 
   $(selector).each((_, el) => {
     const tag = (el as { tagName?: string }).tagName?.toLowerCase() ?? "p";
-    // Skip a block that only wraps other block elements (avoid double-counting).
     const $el = $(el);
+
+    if (tag === "img") {
+      // Emit an image block carrying the parser-rewritten absolute temp path;
+      // extractEpub materializes it (reads bytes, sniffs, hashes) afterwards.
+      // The alt — falling back to the wrapping figure's caption — rides on
+      // `text` and is rendered as the <img alt>, never as sentence spans.
+      const src = $el.attr("src");
+      if (!src) return;
+      const alt =
+        normalizeWhitespace($el.attr("alt") ?? "") ||
+        normalizeWhitespace($el.closest("figure").find("figcaption").text());
+      out.push({ type: "image", text: alt, src });
+      return;
+    }
+
+    // A figcaption's text already rides on its image block as the alt; don't
+    // also emit it as a paragraph. (Only reachable with images on — otherwise
+    // the whole <figure> was removed above.)
+    if (opts?.images && $el.closest("figcaption").length > 0) return;
+
+    // Skip a block that only wraps other block elements (avoid double-counting).
     if ($el.children(Array.from(BLOCK_TAGS).join(",")).length > 0) return;
 
     const text = normalizeWhitespace($el.text());

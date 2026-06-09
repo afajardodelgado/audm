@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/db";
-import { readStoredFile, saveFile, coverPathFor } from "@/lib/storage";
+import {
+  readStoredFile,
+  saveFile,
+  coverPathFor,
+  imageDirFor,
+  imagePathFor,
+  deleteStoredDir,
+} from "@/lib/storage";
 import { extractPdf } from "./pdf";
 import { extractEpub } from "./epub";
 import { runOcr } from "./ocr";
@@ -30,6 +37,19 @@ export async function persistResult(
   doc: Pick<Document, "title" | "author" | "userId">,
   result: ExtractResult
 ): Promise<void> {
+  // Replace the document's image assets before its blocks: clear the previous
+  // extraction's directory, then write the new bytes (best-effort, like the
+  // cover — a missing asset just 404s and the block shows its alt text).
+  await deleteStoredDir(imageDirFor(doc.userId, documentId));
+  for (const b of result.blocks) {
+    if (b.type !== "image" || !b.src || !b.data) continue;
+    try {
+      await saveFile(imagePathFor(doc.userId, documentId, b.src), b.data);
+    } catch {
+      /* asset is best-effort — the block falls back to its alt text */
+    }
+  }
+
   await prisma.$transaction([
     prisma.block.deleteMany({ where: { documentId } }),
     prisma.block.createMany({
@@ -39,7 +59,11 @@ export async function persistResult(
         type: b.type,
         level: b.level ?? null,
         text: b.text,
-        sentenceCount: splitSentences(b.text).length,
+        // Image alt text must never produce narration sids.
+        sentenceCount: b.type === "image" ? 0 : splitSentences(b.text).length,
+        src: b.src ?? null,
+        width: b.width ?? null,
+        height: b.height ?? null,
       })),
     }),
   ]);

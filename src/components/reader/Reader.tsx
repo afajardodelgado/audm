@@ -63,7 +63,9 @@ export default function Reader({
   );
 
   const wordCount = blocks.reduce(
-    (n, b) => n + b.text.split(/\s+/).filter(Boolean).length,
+    // Image blocks carry alt text, not prose — they don't count as words.
+    (n, b) =>
+      n + (b.type === "image" ? 0 : b.text.split(/\s+/).filter(Boolean).length),
     0
   );
 
@@ -80,7 +82,9 @@ export default function Reader({
     let acc = 0;
     for (const b of blocks) {
       offsets.push(acc);
-      acc += Math.max(1, b.sentenceCount);
+      // Image blocks contribute no sentences (narration skips them); counting
+      // them would keep a document that ends in figures from reaching 100%.
+      acc += b.type === "image" ? 0 : Math.max(1, b.sentenceCount);
     }
     const total = acc || 1;
     return (sid: string): number => {

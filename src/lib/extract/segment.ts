@@ -73,9 +73,13 @@ export function countWords(text: string): number {
   return n;
 }
 
-/** Total word count across a set of extracted blocks. */
+/** Total word count across a set of extracted blocks. Image blocks count 0 —
+ *  their `text` is alt/caption metadata, not prose. */
 export function countBlocksWords(blocks: ExtractedBlock[]): number {
-  return blocks.reduce((n, b) => n + countWords(b.text), 0);
+  return blocks.reduce(
+    (n, b) => n + (b.type === "image" ? 0 : countWords(b.text)),
+    0
+  );
 }
 
 /** Collapse runs of whitespace to single spaces and trim the ends. The single

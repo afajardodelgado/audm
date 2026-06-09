@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LOCAL_USER_ID, findOwnedDocument } from "@/lib/db";
-import { coverPathFor, readStoredFile } from "@/lib/storage";
+import { coverPathFor, readStoredFile, sniffImageType } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -26,22 +26,4 @@ export async function GET(
   } catch {
     return NextResponse.json({ error: "Cover missing." }, { status: 404 });
   }
-}
-
-// Covers are stored verbatim (PNG from PDF rendering, JPEG/PNG/etc. from EPUBs),
-// so report the real type from the file's magic bytes.
-function sniffImageType(buf: Buffer): string {
-  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff)
-    return "image/jpeg";
-  if (buf.length >= 4 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47)
-    return "image/png";
-  if (buf.length >= 6 && buf.toString("ascii", 0, 6).startsWith("GIF8"))
-    return "image/gif";
-  if (
-    buf.length >= 12 &&
-    buf.toString("ascii", 0, 4) === "RIFF" &&
-    buf.toString("ascii", 8, 12) === "WEBP"
-  )
-    return "image/webp";
-  return "application/octet-stream";
 }

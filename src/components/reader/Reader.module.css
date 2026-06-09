@@ -73,6 +73,20 @@
   height: 60vh;
 }
 
+/* ---- Inline images (EPUB figures) ------------------------- */
+/* Bottom margin matches the paragraph rhythm (.reading p, globals.css). The
+   width/height attributes plus height:auto preserve the aspect-ratio box, so
+   lazy-loading images don't shift the restored reading position. */
+.imageBlock {
+  margin: 0 0 1.4em;
+}
+.image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+}
+
 /* ---- Block numbers (left-margin visual index) ------------ */
 /* Each block carries a quiet number in the left margin, aligned to its first
    line, for scanning / jumping. Positioned relative to the block so it tracks

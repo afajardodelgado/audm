@@ -23,10 +23,15 @@ export interface DocumentSummary {
 export interface BlockData {
   id: string;
   index: number;
-  type: "paragraph" | "heading" | "blockquote" | "listitem";
+  type: "paragraph" | "heading" | "blockquote" | "listitem" | "image";
   level: number | null;
-  text: string;
-  sentenceCount: number;
+  text: string; // image blocks: the alt/caption text
+  sentenceCount: number; // image blocks: always 0 (narration skips them)
+  /** Image blocks: full servable URL (/api/files/{docId}/images/{asset}). */
+  src?: string | null;
+  /** Image blocks: intrinsic px, for layout reservation (null if unprobed). */
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface CommentData {

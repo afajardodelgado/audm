@@ -32,6 +32,10 @@ export default async function ReadPage({
     level: b.level,
     text: b.text,
     sentenceCount: b.sentenceCount,
+    // The DB stores the bare asset filename; the client gets a servable URL.
+    src: b.src ? `/api/files/${document.id}/images/${b.src}` : null,
+    width: b.width,
+    height: b.height,
   }));
 
   const highlights: HighlightData[] = document.highlights.map((h) => ({
