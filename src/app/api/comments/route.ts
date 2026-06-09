@@ -5,7 +5,7 @@ export const runtime = "nodejs";
 
 // POST — add a comment to an existing highlight.
 export async function POST(req: NextRequest) {
-  const { highlightId, body } = (await req.json()) ?? {};
+  const { highlightId, body } = (await req.json().catch(() => null)) ?? {};
   if (!highlightId || typeof body !== "string" || !body.trim()) {
     return NextResponse.json({ error: "highlightId and body required." }, { status: 400 });
   }

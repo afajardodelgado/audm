@@ -105,6 +105,8 @@ export async function extractDocument(documentId: string): Promise<void> {
 
     await persistResult(documentId, doc, result);
   } catch (err) {
+    // Surface in server logs too — the DB error field only reaches the shelf UI.
+    console.error(`[extract] Document ${documentId} failed:`, err);
     await prisma.document.update({
       where: { id: documentId },
       data: {
@@ -148,6 +150,7 @@ export async function extractDocumentOcr(documentId: string): Promise<void> {
 
     await persistResult(documentId, doc, result);
   } catch (err) {
+    console.error(`[ocr] Document ${documentId} failed:`, err);
     await prisma.document.update({
       where: { id: documentId },
       data: {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma, LOCAL_USER_ID, ensureLocalUser } from "@/lib/db";
+import { prisma, LOCAL_USER_ID, ensureLocalUser, findOwnedDocument } from "@/lib/db";
+import { HL_COLORS } from "@/lib/anchor";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
 
 // POST — create a highlight (optionally with an initial comment body).
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  const body = await req.json().catch(() => null);
   const {
     documentId,
     startSid,
@@ -39,9 +40,17 @@ export async function POST(req: NextRequest) {
     typeof endSid !== "string" ||
     typeof startOffset !== "number" ||
     typeof endOffset !== "number" ||
-    typeof exactText !== "string"
+    typeof exactText !== "string" ||
+    !(HL_COLORS as readonly string[]).includes(color)
   ) {
     return NextResponse.json({ error: "Invalid highlight." }, { status: 400 });
+  }
+
+  // Scope the parent lookup to the owner so a highlight can never be attached
+  // to someone else's document (the create below trusts this id).
+  const doc = await findOwnedDocument(documentId);
+  if (!doc) {
+    return NextResponse.json({ error: "Document not found." }, { status: 404 });
   }
 
   const userId = await ensureLocalUser();

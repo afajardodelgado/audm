@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, findOwnedHighlight } from "@/lib/db";
+import { HL_COLORS } from "@/lib/anchor";
 
 export const runtime = "nodejs";
 
@@ -9,14 +10,17 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { color } = (await req.json()) ?? {};
+  const { color } = (await req.json().catch(() => null)) ?? {};
+  if (!(HL_COLORS as readonly string[]).includes(color)) {
+    return NextResponse.json({ error: "Invalid color." }, { status: 400 });
+  }
   const existing = await findOwnedHighlight(id);
   if (!existing) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
   const highlight = await prisma.highlight.update({
     where: { id },
-    data: { color: typeof color === "string" ? color : existing.color },
+    data: { color },
     include: { comments: true },
   });
   return NextResponse.json({ highlight });

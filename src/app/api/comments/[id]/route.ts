@@ -9,7 +9,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const { body } = (await req.json()) ?? {};
+  const { body } = (await req.json().catch(() => null)) ?? {};
   if (typeof body !== "string" || !body.trim()) {
     return NextResponse.json({ error: "body required." }, { status: 400 });
   }
