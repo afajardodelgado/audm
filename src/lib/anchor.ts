@@ -16,7 +16,6 @@ export interface HighlightAnchor {
 }
 
 export const HL_COLORS = ["yellow", "rose", "blue", "green"] as const;
-export type HlColor = (typeof HL_COLORS)[number];
 
 /** Parse a sentence id ("blockIndex:sentenceIndex") into its two numbers.
  *  NaN for a malformed half — callers guard with Number.isFinite where needed. */

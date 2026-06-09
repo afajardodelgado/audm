@@ -33,7 +33,7 @@ src/
 ├── components/
 │   ├── library/                  # Shelf UI
 │   │   ├── Shelf.tsx             # Library view; polls for status while extracting
-│   │   ├── BookObject.tsx        # One book card (cover, status, actions)
+│   │   ├── FlipCard.tsx          # One book card (cover, status, actions)
 │   │   ├── UploadDropzone.tsx    # Drag-drop file upload → /api/upload
 │   │   └── ImportPanel.tsx       # Paste-text / URL import → /api/import
 │   └── reader/                   # Reader UI
@@ -63,7 +63,7 @@ src/
 │   ├── narrator/
 │   │   ├── types.ts              # NarratorEngine interface + state types
 │   │   └── KokoroNarrator.ts     # In-browser neural TTS implementation
-│   └── supabase/                 # Auth stubs (dormant): client.ts, server.ts
+│   └── (no auth client yet)      # Auth dormant; Supabase client added when enabled
 │
 ├── middleware.ts                 # Pass-through today; auth refresh goes here later
 └── generated/prisma/             # Generated Prisma client (do not edit / lint)

@@ -67,8 +67,7 @@ People expect Audm to work like the apps they already use.
   partial-matching; empty query shows everything (`matchesQuery`).
 
 ### Design the peak and the end — *Peak–End Rule*
-- The **peak** is the 3D shelf + Continue-reading hero — keep it the hero; new
-  chrome never demotes it.
+- The **peak** is the 3D shelf — keep it the hero; new chrome never demotes it.
 - End flows gracefully: a no-results state offers **Clear filters** rather than
   a dead end; adds land the item on the shelf with visible feedback.
 
@@ -85,10 +84,9 @@ People expect Audm to work like the apps they already use.
   safe). Respect `prefers-reduced-motion`.
 
 ### Absorb complexity for the user — *Tesler's Law*
-- The system does the filtering/sorting/derivation. `pickContinue` and the
-  processing **poll run over the full document list**, never the filtered view,
-  so a filter can never silently erase the Continue hero or stall a
-  still-extracting upload.
+- The system does the filtering/sorting/derivation. The processing **poll runs
+  over the full document list**, never the filtered view, so a filter can never
+  silently stall a still-extracting upload.
 
 ### Respond instantly — *Doherty Threshold (<400ms)*
 - Search/filter/sort run **client-side over already-loaded data** — instant, no

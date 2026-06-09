@@ -53,7 +53,7 @@ Copy `.env.example` to `.env`. For local development the defaults are sufficient
 
 ### A note on authentication
 
-Auth is currently **dormant**. Every document, highlight, and comment is attributed to a single synthetic `local` user, and all routes are public. The Supabase client/server stubs (`src/lib/supabase/`), the pass-through `src/middleware.ts`, and the `User` table exist so that switching auth on later is a contained change — the `User.id` is designed to mirror a Supabase auth uid. Until then, treat the app as single-user.
+Auth is currently **dormant**. Every document, highlight, and comment is attributed to a single synthetic `local` user, and all routes are public. The pass-through `src/middleware.ts` and the `User` table exist so that switching auth on later is a contained change — the `User.id` is designed to mirror a Supabase auth uid, and the Supabase client/server helpers are added when auth is switched on. Until then, treat the app as single-user.
 
 ## Documentation
 
