@@ -143,10 +143,44 @@ export class KokoroNarrator implements NarratorEngine {
   private epoch = 0; // bumped on stop/seek/voice change to invalidate async work
   private rafId: number | null = null;
 
+  // Whether the audio element has been unlocked within a user gesture. Browsers
+  // only allow programmatic play() either synchronously inside a gesture or on an
+  // element a prior in-gesture play() already unlocked. Our real play() call
+  // happens AFTER awaiting model load + synthesis (seconds on a cold start), by
+  // which point the gesture window is gone — so we unlock the element up front,
+  // synchronously, on the same click.
+  private unlocked = false;
+
   constructor() {
     if (this.audio) {
       this.audio.preload = "auto";
     }
+  }
+
+  // Unlock the reused audio element inside the current user gesture by starting
+  // (and immediately pausing) a silent clip. Must be called synchronously from a
+  // click/keypress — before any await — so the later post-synthesis play() is
+  // permitted. Idempotent and best-effort.
+  private unlockAudio() {
+    if (this.unlocked || !this.audio) return;
+    this.unlocked = true;
+    const audio = this.audio;
+    // A 1-sample silent WAV data URL — enough to satisfy the gesture requirement.
+    audio.src =
+      "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+    audio.muted = true;
+    void audio
+      .play()
+      .then(() => {
+        audio.pause();
+        audio.muted = false;
+        audio.removeAttribute("src");
+        audio.load();
+      })
+      .catch(() => {
+        // If even this is blocked, fall through — a later in-gesture play may work.
+        audio.muted = false;
+      });
   }
 
   // ---- state plumbing ----------------------------------------------------
@@ -166,6 +200,14 @@ export class KokoroNarrator implements NarratorEngine {
   }
 
   // ---- model + voices ----------------------------------------------------
+
+  // Public: begin downloading/initialising the model ahead of first play so the
+  // first click is instant. Fire-and-forget; ensureModel is idempotent and the
+  // model promise is a module singleton, so a later play() reuses this work.
+  warmup() {
+    if (this.tts || this.state.modelStatus === "loading") return;
+    void this.ensureModel();
+  }
 
   private async ensureModel(): Promise<KokoroTTS | null> {
     if (this.tts) return this.tts;
@@ -265,6 +307,9 @@ export class KokoroNarrator implements NarratorEngine {
 
   play(units: NarrationUnit[], fromSid?: string) {
     if (!this.audio) return;
+    // Unlock synchronously while we still hold the user gesture — model load and
+    // synthesis below are async and would otherwise outlive the gesture window.
+    this.unlockAudio();
     this.epoch += 1;
     this.clearCache();
     this.units = units;

@@ -337,6 +337,25 @@ export default function Reader({
     followScrollRef.current = followScroll;
   }, [narrator.currentWordRange, narrator.currentSid, clickedSid, followScroll]);
 
+  // Resolve a sid to its sentence span, caching the last lookup. The rAF crawl
+  // and the word-highlight effect run up to ~60×/sec but the target sid changes
+  // only at sentence boundaries — so this turns a per-frame querySelector over
+  // ~1500 spans into one lookup per sentence. Invalidated automatically when the
+  // sid differs from the cached one (a re-extraction remounts the reader anyway).
+  const spanCacheRef = useRef<{ sid: string; el: HTMLElement | null }>({
+    sid: "",
+    el: null,
+  });
+  const resolveSpan = useCallback((sid: string): HTMLElement | null => {
+    const cache = spanCacheRef.current;
+    if (cache.sid === sid && cache.el?.isConnected) return cache.el;
+    const el =
+      contentRef.current?.querySelector<HTMLElement>(`[data-sid="${sid}"]`) ??
+      null;
+    spanCacheRef.current = { sid, el };
+    return el;
+  }, []);
+
   // The reader can scroll away to read ahead/back: a manual wheel/touch while
   // narrating suspends the crawl so the page doesn't fight them. Re-engaged by
   // the "Re-center" control or by jumping. When suspended the loop keeps running
@@ -370,9 +389,7 @@ export default function Reader({
       let rect: DOMRect | null = null;
       const wr = clickedSidRef.current ? null : wordRangeRef.current;
       const sid = clickedSidRef.current ?? wr?.sid ?? currentSidRef.current;
-      const span = sid
-        ? content.querySelector<HTMLElement>(`[data-sid="${sid}"]`)
-        : null;
+      const span = sid ? resolveSpan(sid) : null;
       if (span) {
         const node = span.firstChild;
         if (wr && node && node.nodeType === Node.TEXT_NODE) {
@@ -394,7 +411,7 @@ export default function Reader({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [narrator.playing]);
+  }, [narrator.playing, resolveSpan]);
 
   // Word-level highlight via the CSS Custom Highlight API — a Range over the
   // sentence span's single text node, never a DOM split (preserves the
@@ -406,9 +423,7 @@ export default function Reader({
       CSS.highlights.delete("tts-word");
       return;
     }
-    const span = contentRef.current?.querySelector<HTMLElement>(
-      `[data-sid="${wr.sid}"]`
-    );
+    const span = resolveSpan(wr.sid);
     const node = span?.firstChild;
     if (!node || node.nodeType !== Node.TEXT_NODE) {
       CSS.highlights.delete("tts-word");
@@ -419,7 +434,7 @@ export default function Reader({
     r.setStart(node, Math.min(wr.start, len));
     r.setEnd(node, Math.min(wr.end, len));
     CSS.highlights.set("tts-word", new Highlight(r));
-  }, [narrator.currentWordRange]);
+  }, [narrator.currentWordRange, resolveSpan]);
 
   const doHighlight = useCallback(
     async (target: HighlightTarget) => {

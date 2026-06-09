@@ -49,6 +49,9 @@ export interface NarratorEngine {
   pause(): void;
   resume(): void;
   stop(): void; // full teardown; clears current sid/word
+  /** Begin loading the model ahead of first play (idle prefetch). Optional —
+   *  callers must tolerate engines that don't implement it. */
+  warmup?(): void;
   setRate(mult: number): void;
   setVoice(id: string): void;
   getState(): NarratorState;

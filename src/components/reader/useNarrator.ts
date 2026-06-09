@@ -56,7 +56,16 @@ export function useNarrator(): NarratorApi {
     if (!engine) return;
     setState(engine.getState());
     const unsub = engine.subscribe(setState);
+    // Warm the model when the browser is idle so the first Play is instant. The
+    // model is a module singleton and ensureModel is idempotent, so this is
+    // wasted at most once per device (the download is browser-cached).
+    const ric =
+      typeof requestIdleCallback === "function"
+        ? requestIdleCallback(() => engine.warmup?.())
+        : (setTimeout(() => engine.warmup?.(), 1200) as unknown as number);
     return () => {
+      if (typeof cancelIdleCallback === "function") cancelIdleCallback(ric);
+      else clearTimeout(ric);
       unsub();
       engine.dispose();
       engineRef.current = null;
