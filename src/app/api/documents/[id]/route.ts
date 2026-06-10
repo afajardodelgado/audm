@@ -63,6 +63,11 @@ export async function PATCH(
   return NextResponse.json({ ok: true, readingProgress });
 }
 
+// The reader's pagehide/unmount progress flush uses navigator.sendBeacon, which
+// can only issue POST — without this alias the flush 405s and the tail of the
+// session's progress is lost. Safe: the handler is monotonic and idempotent.
+export { PATCH as POST };
+
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
