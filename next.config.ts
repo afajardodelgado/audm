@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Efficient single-binary output for Railway.
-  output: "standalone",
+  // No `output: "standalone"` — Railway starts with `next start` from the full
+  // node_modules (Nixpacks keeps the build image as the runtime image), so the
+  // standalone bundle was never used; producing it only triggered next-start's
+  // standalone warning at boot.
   // Keep PDF/EPUB parsers and the OCR stack out of the bundler so their
   // worker/native deps (DOMMatrix polyfills, inlined worker, zip internals,
   // @napi-rs/canvas .node binary, tesseract.js WASM) resolve at runtime.

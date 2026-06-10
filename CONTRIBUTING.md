@@ -101,7 +101,7 @@ When changing the schema:
 
 Configured in `railway.json` (NIXPACKS builder):
 
-- **Build:** `npm run build` — flips the datasource to Postgres (`DATABASE_PROVIDER=postgresql`), generates the client, builds the standalone Next.js output.
+- **Build:** `npm run build` — flips the datasource to Postgres (`DATABASE_PROVIDER=postgresql`), generates the client, builds the Next.js production output (`next start` serves it from the full `node_modules`, which Nixpacks keeps at runtime).
 - **Start:** `npm run start:railway` — re-confirms the provider, runs `prisma migrate deploy`, then `next start`.
 - **Volume:** uploaded files/covers are written under `RAILWAY_VOLUME_MOUNT_PATH` (injected by Railway). The volume mounts at runtime only — never write to it at build time.
 - **Health check:** `/`.

@@ -25,7 +25,7 @@
 | EPUB | `@lingo-reader/epub-parser` + `cheerio` |
 | Web articles | `@mozilla/readability` + `linkedom` |
 | OCR | `tesseract.js` |
-| Hosting | Railway (standalone output, persistent volume) |
+| Hosting | Railway (persistent volume) |
 
 ## Quick start
 
@@ -67,4 +67,4 @@ Auth is currently **dormant**. Every document, highlight, and comment is attribu
 
 ## Deployment
 
-Audm deploys to Railway. The build flips the Prisma datasource to Postgres, generates the client, and produces a standalone Next.js build; the start command runs migrations and boots the server. See [CONTRIBUTING.md](./CONTRIBUTING.md#deployment-railway) for details.
+Audm deploys to Railway. The build flips the Prisma datasource to Postgres, generates the client, and builds the Next.js production output; the start command runs migrations and boots the server. See [CONTRIBUTING.md](./CONTRIBUTING.md#deployment-railway) for details.
