@@ -13,6 +13,10 @@ export interface ExtractedBlock {
   width?: number;
   height?: number;
   data?: Buffer;
+  // PDF text blocks only: per-line source-page geometry
+  // [[page, x, yBaseline, width, fontHeight, charCount], ...] for the
+  // original-page view.
+  layout?: [number, number, number, number, number, number][];
 }
 
 export interface ExtractResult {

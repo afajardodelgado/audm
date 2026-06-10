@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma, LOCAL_USER_ID } from "@/lib/db";
 import Reader from "@/components/reader/Reader";
-import { tocFromMeta } from "@/lib/types";
+import { tocFromMeta, pageDimsFromMeta } from "@/lib/types";
 import type { BlockData, HighlightData } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +37,7 @@ export default async function ReadPage({
     src: b.src ? `/api/files/${document.id}/images/${b.src}` : null,
     width: b.width,
     height: b.height,
+    layout: (b.layout as number[][] | null) ?? null,
   }));
 
   const highlights: HighlightData[] = document.highlights.map((h) => ({
@@ -66,6 +67,8 @@ export default async function ReadPage({
       initialHighlights={highlights}
       lastReadSid={document.lastReadSid}
       toc={tocFromMeta(document.meta)}
+      sourceType={document.sourceType}
+      pageDims={pageDimsFromMeta(document.meta)}
     />
   );
 }

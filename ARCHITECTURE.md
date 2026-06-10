@@ -29,7 +29,8 @@ src/
 │       ├── comments/[id]/route.ts        # PATCH body / DELETE
 │       ├── files/[id]/route.ts           # GET original file stream
 │       ├── files/[id]/cover/route.ts     # GET cover thumbnail
-│       └── files/[id]/images/[asset]/route.ts # GET inline image asset (EPUB figures)
+│       ├── files/[id]/images/[asset]/route.ts # GET inline image asset (PDF/EPUB figures)
+│       └── files/[id]/pages/[n]/route.ts # GET rendered PDF page (Original view; cached on first render)
 │
 ├── components/
 │   ├── library/                  # Shelf UI (styles: Shelf.module.css, shared by the group)
@@ -42,9 +43,11 @@ src/
 │   │   ├── UploadDropzone.tsx    # Drag-drop file upload → /api/upload
 │   │   └── ImportPanel.tsx       # Paste-text / URL import → /api/import
 │   └── reader/                   # Reader UI (styles: Reader.module.css, shared by the group)
-│       ├── Reader.tsx            # Orchestrator: scroll, narration, highlights, chords
+│       ├── Reader.tsx            # Orchestrator: views, scroll, narration, highlights, chords
 │       ├── BlockRenderer.tsx     # Renders a block with per-sentence data-sid spans
-│       ├── ContentsMenu.tsx      # Table-of-contents dropdown (EPUBs with a TOC)
+│       ├── ContentsMenu.tsx      # Table-of-contents dropdown (PDF outline / EPUB TOC)
+│       ├── PdfOriginal.tsx       # "Original" view: source pages + projected overlays
+│       ├── useBookPaging.ts      # "Book" view: CSS-multicolumn two-page spreads
 │       ├── ProgressRail.tsx      # Visual reading-progress bar
 │       ├── CommentPopover.tsx    # Add-comment popover
 │       ├── CommentOverlay.tsx    # Comment markers/overlay
@@ -179,7 +182,9 @@ Two fields on `Document`, both **monotonic** (they never move backward):
 
 **Import text / URL.** `ImportPanel` → `postForDocument("/api/import", json)` → route parses text (`textToResult`) or fetches+extracts a URL (`urlToResult`), creates the document, stores the source, and `persistResult`s inline → `ready` immediately.
 
-**Read & narrate.** Click a book → `/read/[docId]` server-renders the document + blocks + highlights into `<Reader>`. The reader wires up `useScrollEngine`, `useCurrentLine`, `useHighlights`, and `useNarrator`. Space toggles play (narration if supported, else auto-scroll); clicking a sentence starts narration there; ↑/↓ change speed. EPUBs with a table of contents get a **Contents** menu in the top bar (`t` toggles; the chapter being read carries the gold seam) — selecting a chapter scrolls to it, or redirects narration there when it's already speaking.
+**Read & narrate.** Click a book → `/read/[docId]` server-renders the document + blocks + highlights into `<Reader>`. The reader wires up `useScrollEngine`, `useCurrentLine`, `useHighlights`, and `useNarrator`. Space toggles play (narration if supported, else auto-scroll); clicking a sentence starts narration there; ↑/↓ change speed. Books with a table of contents (EPUB NCX / PDF outline) get a **Contents** menu in the top bar (`t` toggles; the chapter being read carries the gold seam) — selecting a chapter scrolls to it, or redirects narration there when it's already speaking.
+
+**Reading views.** `v` (or the top-right toggle) switches presentation; the Audm article stays mounted in every view because narration units and chord anchors are built from its spans. **Original** (PDFs with stored geometry): `PdfOriginal.tsx` lazy-loads server-rendered page images (`/api/files/[id]/pages/[n]`, rendered once and cached on the volume) and projects the experience onto them — the active-sentence band, the narration word mark, and saved highlights are placed by mapping char ranges proportionally across each block's stored line rects (`Block.layout`: `[[page, x, yBaseline, width, fontHeight, chars], …]`, page sizes in `meta.pages`); clicks resolve to the nearest line's sentence and start narration there, and the viewport-centre sentence is reported back so chords/progress keep working. Deliberately approximate (no per-glyph metrics) — the Speechify-style trade. **Book** (EPUBs): the same article flows into fixed-height CSS columns (the epub.js/Readium pagination technique) shown two to a spread; turns are manual (←/→, edge buttons) or automatic (narration follow; the silent fallback turns at the WPM pace). Margin comment cards render only in the Audm view; highlights paint everywhere.
 
 **Highlight & comment.** Chord `c` then `s` (sentence) / `p` (paragraph) — or `c d s`/`c d p` to extend one back — creates a highlight in the active color (`1`–`4` pick the color; `x`/Backspace removes the highlight under the current sentence). Creating one offers a comment popover (`POST /api/comments`).
 
@@ -225,5 +230,6 @@ All routes run on the Node.js runtime. Success/error bodies are JSON unless note
 | GET | `/api/files/[id]` | `200` original file stream (`application/pdf` or `application/epub+zip`) | `404` not found |
 | GET | `/api/files/[id]/cover` | `200` cover image (type sniffed from magic bytes; cached immutably) | `404` no cover |
 | GET | `/api/files/[id]/images/[asset]` | `200` inline image asset (type sniffed; cached immutably — the filename embeds a content hash) | `404` unknown document / malformed asset name / missing file |
+| GET | `/api/files/[id]/pages/[n]` | `200` rendered PDF page PNG (rendered on first request, cached on the volume; immutable) | `404` not a PDF / page out of range · `500` render failed |
 
 `DocumentSummary` / `Block` / `Highlight` / `Comment` client shapes are in [`src/lib/types.ts`](./src/lib/types.ts) (dates as ISO strings).

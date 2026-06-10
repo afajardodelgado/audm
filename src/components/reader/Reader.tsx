@@ -20,11 +20,18 @@ import { useHighlights } from "./useHighlights";
 import { useNarrator } from "./useNarrator";
 import type { NarrationUnit } from "@/lib/narrator/types";
 import { rangeForTarget, parseSid, type HighlightTarget, HL_COLORS } from "@/lib/anchor";
-import { CHORD_TIMEOUT_MS, PROGRESS_SAVE_THROTTLE_MS } from "@/lib/constants";
+import { BASE_WPM, CHORD_TIMEOUT_MS, PROGRESS_SAVE_THROTTLE_MS } from "@/lib/constants";
 import ProgressRail from "./ProgressRail";
 import CommentPopover from "./CommentPopover";
 import CommentOverlay from "./CommentOverlay";
+import PdfOriginal from "./PdfOriginal";
+import { useBookPaging } from "./useBookPaging";
 import styles from "./Reader.module.css";
+
+// Alternate presentations of the same block stream. "audm" is the reflowed
+// scroll; "original" overlays the experience on the source PDF's pages;
+// "book" paginates the typeset text into a two-page spread (EPUB).
+type ReaderView = "audm" | "original" | "book";
 
 // The ::highlight() rules are injected here at runtime (the build-time CSS
 // parser doesn't recognise the pseudo-element).
@@ -50,6 +57,8 @@ export default function Reader({
   initialHighlights,
   lastReadSid,
   toc,
+  sourceType,
+  pageDims,
 }: {
   docId: string;
   title: string;
@@ -59,6 +68,8 @@ export default function Reader({
   initialHighlights: HighlightData[];
   lastReadSid: string | null;
   toc?: ChapterRef[];
+  sourceType: "pdf" | "epub" | "text" | "web";
+  pageDims?: [number, number][];
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -81,6 +92,52 @@ export default function Reader({
   const current = useCurrentLine(scrollerRef, contentRef, ready);
   const hl = useHighlights(docId, contentRef, initialHighlights, ready);
   const narrator = useNarrator();
+
+  // Alternate view: "original" for PDFs with stored page geometry, "book"
+  // (two-page spread) for EPUBs. The Audm article stays mounted in every view
+  // — narration units and chord anchors are built from its spans.
+  const altView: ReaderView | null =
+    sourceType === "pdf" && pageDims && blocks.some((b) => b.layout?.length)
+      ? "original"
+      : sourceType === "epub"
+        ? "book"
+        : null;
+  const [view, setView] = useState<ReaderView>("audm");
+  // Silent auto-advance for the Book view (toggled by Play when narration is
+  // unsupported); declared here so pickView below can clear it.
+  const [bookAuto, setBookAuto] = useState(false);
+  useEffect(() => {
+    if (!altView) return;
+    const saved = window.localStorage.getItem(`audm:view:${docId}`);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring a saved client preference once on mount
+    if (saved === altView) setView(saved);
+  }, [docId, altView]);
+  const pickView = useCallback(
+    (v: ReaderView) => {
+      setView(v);
+      setBookAuto(false); // the silent page-turner never outlives its view
+      window.localStorage.setItem(`audm:view:${docId}`, v);
+    },
+    [docId]
+  );
+
+  // Book view opens on the resume point (or the document start).
+  const book = useBookPaging(scrollerRef, contentRef, view === "book", lastReadSid);
+
+  // The focus-line sentence per view: PdfOriginal reports it for "original"
+  // (no observable spans there), the current spread's first sentence for
+  // "book", and useCurrentLine's scroll observer otherwise.
+  const [originalSid, setOriginalSid] = useState<string | null>(null);
+  const [bookSid, setBookSid] = useState<string | null>(null);
+  useEffect(() => {
+    // Sync the focus sentence FROM the laid-out spread (an external/DOM read)
+    // whenever the spread changes.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (view === "book") setBookSid(book.currentSid());
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-read on spread change only
+  }, [view, book.spread, book.spreadCount]);
+  const focusSid =
+    view === "original" ? originalSid : view === "book" ? bookSid : current.sid;
 
   // Map a sid ("blockIndex:sentenceIndex") to a 0..1 reading fraction using the
   // per-block sentence counts. Precompute the cumulative offset per block so a
@@ -135,7 +192,7 @@ export default function Reader({
   // (current.sid) drives the highlight. A fresh click overrides both until the
   // narrator reaches it. Exactly one driver at a time.
   const narrating = narrator.playing || narrator.currentSid !== null;
-  const activeSid = clickedSid ?? (narrating ? narrator.currentSid : current.sid);
+  const activeSid = clickedSid ?? (narrating ? narrator.currentSid : focusSid);
 
   // Contents menu (EPUBs with a table of contents). The current chapter is the
   // last entry at-or-before the active sentence's block; -1 before the first.
@@ -160,11 +217,30 @@ export default function Reader({
     if (clickedSid && narrator.currentSid === clickedSid) setClickedSid(null);
   }, [clickedSid, narrator.currentSid]);
 
-  // Play/pause: narration when speech is supported, else silent auto-scroll.
+  // Silent auto-advance for the Book view (no vertical scroller to pace):
+  // turn spreads on a words-per-spread estimate at the shared WPM rate.
+  useEffect(() => {
+    if (!bookAuto || view !== "book") return;
+    if (prefersReducedMotion()) return;
+    const secondsPerSpread =
+      ((wordCount / Math.max(1, book.spreadCount) / (BASE_WPM * rate)) * 60) || 8;
+    const id = window.setInterval(() => {
+      book.nextSpread();
+    }, Math.max(2, secondsPerSpread) * 1000);
+    return () => window.clearInterval(id);
+  }, [bookAuto, view, wordCount, book, rate]);
+
+  // Play/pause: narration when speech is supported; otherwise the silent
+  // fallback — auto-scroll in scrolling views, timed page-turns in Book view.
   const togglePlay = useCallback(() => {
-    if (narrator.supported) narrator.toggle(buildUnits, current.sid ?? undefined);
-    else engine.toggle();
-  }, [narrator, buildUnits, current.sid, engine]);
+    if (narrator.supported) {
+      narrator.toggle(buildUnits, focusSid ?? undefined);
+    } else if (view === "book") {
+      setBookAuto((a) => !a);
+    } else {
+      engine.toggle();
+    }
+  }, [narrator, buildUnits, focusSid, engine, view]);
 
   // Jump to (and narrate from) the sentence span `sid`: highlight + recenter
   // right away so the jump feels instant; the narrator synthesizes and catches up.
@@ -177,13 +253,18 @@ export default function Reader({
       if (!span) return;
       setClickedSid(sid);
       setFollowScroll(true); // jumping re-engages the follow-crawl
-      span.scrollIntoView({
-        behavior: prefersReducedMotion() ? "auto" : "smooth",
-        block: "center",
-      });
+      if (view === "audm") {
+        span.scrollIntoView({
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+          block: "center",
+        });
+      } else if (view === "book") {
+        book.goToSid(sid);
+      }
+      // Original view: PdfOriginal's follow effect re-centres on the new sid.
       narrator.play(buildUnits(), sid);
     },
-    [narrator, buildUnits]
+    [narrator, buildUnits, view, book]
   );
 
   // Click a sentence to (re)start narration from the top of that sentence —
@@ -213,13 +294,18 @@ export default function Reader({
     setFollowScroll(true);
     const sid = narrator.currentSid;
     if (!sid) return;
+    if (view === "book") {
+      book.goToSid(sid);
+      return;
+    }
+    if (view === "original") return; // PdfOriginal's follow effect re-centres
     contentRef.current
       ?.querySelector<HTMLElement>(`[data-sid="${sid}"]`)
       ?.scrollIntoView({
         behavior: prefersReducedMotion() ? "auto" : "smooth",
         block: "center",
       });
-  }, [narrator.currentSid]);
+  }, [narrator.currentSid, view, book]);
 
   // Jump to a chapter from the contents menu. Scans forward to the chapter's
   // first narratable sentence (image blocks render no sids). If narration is
@@ -240,6 +326,21 @@ export default function Reader({
         jumpToSid(sid);
         return;
       }
+      if (view === "book") {
+        book.goToSid(sid);
+        return;
+      }
+      if (view === "original") {
+        // Scroll to the chapter's source page (outline targets are pages).
+        const page = blocks[entry.block]?.layout?.[0]?.[0];
+        scrollerRef.current
+          ?.querySelector<HTMLElement>(`[data-page="${page}"]`)
+          ?.scrollIntoView({
+            behavior: prefersReducedMotion() ? "auto" : "smooth",
+            block: "start",
+          });
+        return;
+      }
       contentRef.current
         ?.querySelector<HTMLElement>(`[data-sid="${sid}"]`)
         ?.scrollIntoView({
@@ -247,7 +348,7 @@ export default function Reader({
           block: "center",
         });
     },
-    [blocks, narrator.playing, jumpToSid]
+    [blocks, narrator.playing, jumpToSid, view, book]
   );
 
   // One shared rate control feeds both the narrator and the scroll fallback.
@@ -440,7 +541,7 @@ export default function Reader({
   }, []);
 
   useEffect(() => {
-    if (!narrator.playing) return;
+    if (!narrator.playing || view !== "audm") return;
     const scroller = scrollerRef.current;
     const content = contentRef.current;
     if (!scroller || !content) return;
@@ -488,7 +589,49 @@ export default function Reader({
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [narrator.playing, resolveSpan]);
+  }, [narrator.playing, resolveSpan, view]);
+
+  // Book view: narration follow turns the page only when the spoken sentence
+  // moves onto a spread that isn't currently shown — a sentence on the visible
+  // spread's right page stays put (it's already in view).
+  useEffect(() => {
+    if (view !== "book" || !narrator.playing || !followScroll) return;
+    const sid = narrator.currentSid;
+    if (sid) book.ensureVisible(sid);
+  }, [view, narrator.playing, narrator.currentSid, followScroll, book]);
+
+  // Manual page turns suspend narration follow (like wheel/touch in the
+  // scrolling views); Re-center re-engages it.
+  const turnNext = useCallback(() => {
+    setFollowScroll(false);
+    book.nextSpread();
+  }, [book]);
+  const turnPrev = useCallback(() => {
+    setFollowScroll(false);
+    book.prevSpread();
+  }, [book]);
+
+  // Switching views keeps the reading position: land the new view on the
+  // last active sentence.
+  const lastActiveSidRef = useRef<string | null>(lastReadSid);
+  useEffect(() => {
+    if (activeSid) lastActiveSidRef.current = activeSid;
+  }, [activeSid]);
+  const prevViewRef = useRef(view);
+  useEffect(() => {
+    if (prevViewRef.current === view) return;
+    prevViewRef.current = view;
+    const sid = lastActiveSidRef.current;
+    if (!sid) return;
+    if (view === "book") {
+      book.goToSid(sid);
+    } else if (view === "audm") {
+      contentRef.current
+        ?.querySelector<HTMLElement>(`[data-sid="${sid}"]`)
+        ?.scrollIntoView({ block: "center" });
+    }
+    // "original": PdfOriginal mounts fresh and restores via initialSid.
+  }, [view, book]);
 
   // Word-level highlight via the CSS Custom Highlight API — a Range over the
   // sentence span's single text node, never a DOM split (preserves the
@@ -516,8 +659,8 @@ export default function Reader({
   const doHighlight = useCallback(
     async (target: HighlightTarget) => {
       const content = contentRef.current;
-      if (!content || !current.sid) return;
-      const r = rangeForTarget(content, current.sid, target);
+      if (!content || !focusSid) return;
+      const r = rangeForTarget(content, focusSid, target);
       if (!r) return;
       const created = await hl.create(
         r.startSid,
@@ -529,12 +672,12 @@ export default function Reader({
       // Offer (but don't force) a comment.
       if (created) setPendingComment(created);
     },
-    [current.sid, hl, color]
+    [focusSid, hl, color]
   );
 
   const removeCurrent = useCallback(() => {
-    if (!current.sid) return;
-    const cur = parseSid(current.sid);
+    if (!focusSid) return;
+    const cur = parseSid(focusSid);
     // Find a highlight whose sentence range contains the current sentence.
     const containing = hl.highlights.find((h) => {
       const start = parseSid(h.startSid);
@@ -545,7 +688,7 @@ export default function Reader({
       return true;
     });
     if (containing) void hl.remove(containing.id);
-  }, [current.sid, hl]);
+  }, [focusSid, hl]);
 
   // Keyboard model: chord leader "c" then s/p, with d to extend back.
   const chordRef = useRef<{ buf: string; timer: number | null }>({
@@ -607,6 +750,20 @@ export default function Reader({
         }
         if (e.key === "t" && hasToc) {
           setTocOpen((o) => !o);
+          return;
+        }
+        if (e.key === "v" && altView) {
+          pickView(view === "audm" ? altView : "audm");
+          return;
+        }
+        if (view === "book" && (e.key === "ArrowRight" || e.key === "PageDown")) {
+          e.preventDefault();
+          turnNext();
+          return;
+        }
+        if (view === "book" && (e.key === "ArrowLeft" || e.key === "PageUp")) {
+          e.preventDefault();
+          turnPrev();
           return;
         }
         if (e.key >= "1" && e.key <= "4") {
@@ -677,7 +834,7 @@ export default function Reader({
       window.removeEventListener("keydown", onKey);
       if (chordState.timer) window.clearTimeout(chordState.timer);
     };
-  }, [engine, narrator, togglePlay, changeRate, doHighlight, removeCurrent, tocOpen, hasToc]);
+  }, [engine, narrator, togglePlay, changeRate, doHighlight, removeCurrent, tocOpen, hasToc, altView, view, pickView, turnNext, turnPrev]);
 
   if (status !== "ready") {
     return (
@@ -723,17 +880,71 @@ export default function Reader({
           <span>{title}</span>
           {author && <span className={styles.barAuthor}> · {author}</span>}
         </div>
-        <Link href="/shortcuts" className={styles.barShortcuts}>
-          Shortcuts
-        </Link>
+        <div className={styles.barRight}>
+          {altView && (
+            <div
+              className={styles.viewToggle}
+              role="group"
+              aria-label="Reading view"
+            >
+              <button
+                type="button"
+                className={`${styles.viewBtn} ${view === "audm" ? styles.viewBtnActive : ""}`}
+                aria-pressed={view === "audm"}
+                onClick={() => pickView("audm")}
+              >
+                Audm
+              </button>
+              <button
+                type="button"
+                className={`${styles.viewBtn} ${view === altView ? styles.viewBtnActive : ""}`}
+                aria-pressed={view === altView}
+                onClick={() => pickView(altView)}
+              >
+                {altView === "original" ? "Original" : "Book"}
+              </button>
+            </div>
+          )}
+          <Link href="/shortcuts" className={styles.barShortcuts}>
+            Shortcuts
+          </Link>
+        </div>
       </header>
 
-      <ProgressRail progress={progress} />
+      <ProgressRail
+        progress={
+          view === "book"
+            ? book.spreadCount > 1
+              ? book.spread / (book.spreadCount - 1)
+              : 1
+            : progress
+        }
+      />
 
-      <div ref={scrollerRef} className={styles.scroller}>
+      <div
+        ref={scrollerRef}
+        className={`${styles.scroller} ${view === "book" ? styles.scrollerBook : ""}`}
+      >
+        {view === "original" && pageDims && (
+          <PdfOriginal
+            docId={docId}
+            blocks={blocks}
+            pageDims={pageDims}
+            highlights={hl.highlights}
+            activeSid={activeSid}
+            wordRange={narrator.currentWordRange}
+            follow={followScroll && narrating}
+            initialSid={activeSid ?? lastReadSid}
+            scrollerRef={scrollerRef}
+            onSentenceClick={jumpToSid}
+            onCurrentSid={setOriginalSid}
+          />
+        )}
         <article
           ref={contentRef}
-          className={`reading ${styles.content}`}
+          className={`reading ${styles.content} ${
+            view === "original" ? styles.contentHidden : ""
+          } ${view === "book" ? styles.contentBook : ""}`}
           onClick={onContentClick}
         >
           <h1 className={styles.docTitle}>{title}</h1>
@@ -745,8 +956,31 @@ export default function Reader({
         </article>
       </div>
 
-      {/* Faint gold focus line at vertical centre. */}
-      <div className={`focus-line ${styles.focusLine}`} />
+      {view === "book" && (
+        <>
+          <button
+            type="button"
+            className={`${styles.turnBtn} ${styles.turnPrev}`}
+            onClick={turnPrev}
+            disabled={book.spread === 0}
+            aria-label="Previous pages"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            className={`${styles.turnBtn} ${styles.turnNext}`}
+            onClick={turnNext}
+            disabled={book.spread >= book.spreadCount - 1}
+            aria-label="Next pages"
+          >
+            ›
+          </button>
+        </>
+      )}
+
+      {/* Faint gold focus line at vertical centre (scroll-reading aid). */}
+      {view !== "book" && <div className={`focus-line ${styles.focusLine}`} />}
 
       {/* Toolbar: play/pause (narration), speed, colour. */}
       <footer className={styles.toolbar}>
@@ -802,12 +1036,16 @@ export default function Reader({
         {chord && <div className={styles.chordHint}>{chord} …</div>}
       </footer>
 
-      <CommentOverlay
-        highlights={hl.highlights}
-        contentRef={contentRef}
-        scrollerRef={scrollerRef}
-        ready={ready}
-      />
+      {/* Margin comment cards belong to the scrolling Audm layout; the other
+          views show highlights only. */}
+      {view === "audm" && (
+        <CommentOverlay
+          highlights={hl.highlights}
+          contentRef={contentRef}
+          scrollerRef={scrollerRef}
+          ready={ready}
+        />
+      )}
 
       {pendingComment && (
         <CommentPopover

@@ -5,6 +5,7 @@ import {
   deleteStoredDir,
   coverPathFor,
   imageDirFor,
+  pageDirFor,
 } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -74,6 +75,7 @@ export async function DELETE(
   await deleteStoredFile(doc.filePath);
   if (doc.hasCover) await deleteStoredFile(coverPathFor(LOCAL_USER_ID, id));
   await deleteStoredDir(imageDirFor(LOCAL_USER_ID, id)); // inline image assets
+  await deleteStoredDir(pageDirFor(LOCAL_USER_ID, id)); // rendered page cache
   await prisma.document.delete({ where: { id } }); // cascades blocks/highlights
   return NextResponse.json({ ok: true });
 }

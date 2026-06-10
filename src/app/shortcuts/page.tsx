@@ -10,6 +10,8 @@ const GROUPS: { title: string; rows: { keys: string[]; label: string }[] }[] = [
       { keys: ["↓", "−"], label: "Narrate slower" },
       { keys: ["Esc"], label: "Stop narration" },
       { keys: ["t"], label: "Open / close the contents menu" },
+      { keys: ["v"], label: "Switch reading view (Original / Book)" },
+      { keys: ["←", "→"], label: "Turn pages (Book view)" },
     ],
   },
   {

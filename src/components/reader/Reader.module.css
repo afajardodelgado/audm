@@ -218,6 +218,159 @@ h3.numbered .blockNum {
   top: 50%;
 }
 
+/* ---- Original view (PDF source pages) --------------------- */
+/* Pages are aspect-ratio boxes (stable layout before images load) with the
+   reading experience overlaid as percent-positioned bands. multiply blending
+   keeps the page's own text legible beneath every mark. */
+.pdfPages {
+  max-width: min(52rem, 94vw);
+  margin: 0 auto;
+  padding: 4.5rem 0 40vh;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.pdfPage {
+  position: relative;
+  width: 100%;
+  background: white; /* the page's own paper, not a UI surface */
+  box-shadow: 0 14px 36px -24px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.pdfPageImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.pdfOverlay {
+  position: absolute;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  border-radius: 2px;
+}
+.pdfSentence {
+  background: var(--gold-soft);
+}
+.pdfWord {
+  background: color-mix(in srgb, var(--gold) 45%, transparent);
+}
+
+/* The Audm article stays mounted in Original view (narration units and chord
+   anchors read from it) but renders nothing. */
+.contentHidden {
+  display: none;
+}
+
+/* ---- Book view (EPUB two-page spread) ---------------------- */
+/* The article flows into fixed-height columns (the technique epub.js/Readium
+   use for pagination) and the view translates horizontally one spread at a
+   time. Column width/gap and the content width are set in PIXELS by
+   useBookPaging so the column stride exactly equals the translation stride —
+   pure-CSS column math drifts a few px per spread and lands page boundaries
+   mid-column deep into a book. */
+.scrollerBook {
+  overflow: hidden;
+}
+.contentBook {
+  /* Reserve the top bar and the floating toolbar's zone so no line of text
+     ever sits under chrome. */
+  height: calc(100dvh - 4.25rem - 7rem);
+  margin-top: 4.25rem;
+  padding: 0;
+  column-fill: auto;
+  max-width: none;
+  transition: transform 240ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .contentBook {
+    transition: none;
+  }
+}
+.contentBook figure {
+  break-inside: avoid;
+}
+/* Book columns paginate by measuring each block's column position, so the
+   flow must be stable BEFORE images load — a lazy image that starts at zero
+   height and expands on load reflows the columns and breaks page math. The
+   figure reserves a fixed-height box up front (the <img> keeps its aspect
+   ratio inside it via object-fit), so geometry never shifts. */
+.contentBook .imageBlock {
+  height: 38dvh;
+  margin: 0 0 1.4em;
+}
+.contentBook .image {
+  height: 100%;
+  width: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+/* Page-turn affordances: quiet glyph buttons pinned mid-edge (Fitts: 44px). */
+.turnBtn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 1.4rem;
+  cursor: pointer;
+  z-index: 9;
+  transition: color 150ms ease;
+}
+.turnBtn:hover {
+  color: var(--ink);
+}
+.turnBtn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.turnPrev {
+  left: 0.25rem;
+}
+.turnNext {
+  right: 0.25rem;
+}
+
+/* ---- View toggle (top bar, next to Shortcuts) -------------- */
+.barRight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.viewToggle {
+  display: flex;
+}
+.viewBtn {
+  min-height: 2.75rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--ink-faint);
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+.viewBtn + .viewBtn {
+  border-left: none;
+}
+.viewBtn:hover {
+  color: var(--ink);
+}
+.viewBtnActive {
+  color: var(--ink);
+  border-color: var(--gold);
+  background: var(--gold-soft);
+}
+.viewBtn + .viewBtnActive {
+  border-left: 1px solid var(--gold);
+}
+
 /* ---- Current sentence (Speechify-style read-along) -------- */
 /* Applied to the [data-sid] span the reader is currently on. Sits beneath
    saved ::highlight() colours (which paint over it) but above plain text. */

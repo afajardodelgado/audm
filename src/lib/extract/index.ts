@@ -64,6 +64,7 @@ export async function persistResult(
         src: b.src ?? null,
         width: b.width ?? null,
         height: b.height ?? null,
+        layout: b.layout ?? undefined,
       })),
     }),
   ]);

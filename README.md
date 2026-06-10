@@ -10,6 +10,7 @@
 - **Auto-scroll** — a silent reading mode that paces the page at a configurable WPM when narration isn't used.
 - **Scanned PDF OCR** — PDFs with no text layer are detected and can be run through OCR ([tesseract.js](https://github.com/naptha/tesseract.js)).
 - **Chapters & book details** — an EPUB's table of contents or a PDF's outline becomes a Contents menu in the reader (`t` toggles it; the chapter being read is marked); publisher/year appear on the shelf card. PDF figures and EPUB illustrations render inline, skipped by narration.
+- **Reading views** (`v` toggles, top-right) — PDFs can flip to the **Original** view: the source pages themselves, with the read-along sentence band, the moving word mark, and your saved highlights projected onto them (click a line to narrate from it). EPUBs flip to a Kindle-style **Book** view: a two-page spread of the same typeset text, with manual page turns (`←`/`→`) and narration auto-turning to follow the voice.
 - **Highlights & comments** — select text or use keyboard chords to highlight in four colors; attach comments. Highlights are anchored to stable sentence IDs so they survive reloads and re-extraction.
 - **Resume where you left off** — reading progress is tracked per sentence and shown as a badge on the shelf.
 

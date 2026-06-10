@@ -88,6 +88,32 @@ export interface BlockData {
   /** Image blocks: intrinsic px, for layout reservation (null if unprobed). */
   width?: number | null;
   height?: number | null;
+  /** PDF text blocks: per-line source-page geometry for the Original view —
+   *  [[page, x, yBaseline, width, fontHeight, charCount], ...] in PDF user
+   *  space (origin bottom-left). */
+  layout?: number[][] | null;
+}
+
+/** Per-page [width, height] (PDF user space) from Document.meta, for the
+ *  Original-page view; undefined when absent/malformed. */
+export function pageDimsFromMeta(meta: unknown): [number, number][] | undefined {
+  if (typeof meta !== "object" || meta === null) return undefined;
+  const raw = (meta as { pages?: unknown }).pages;
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const dims: [number, number][] = [];
+  for (const p of raw) {
+    if (
+      !Array.isArray(p) ||
+      typeof p[0] !== "number" ||
+      typeof p[1] !== "number" ||
+      p[0] <= 0 ||
+      p[1] <= 0
+    ) {
+      return undefined;
+    }
+    dims.push([p[0], p[1]]);
+  }
+  return dims;
 }
 
 export interface CommentData {

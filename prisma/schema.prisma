@@ -96,6 +96,10 @@ model Block {
   src    String?
   width  Int?
   height Int?
+  // PDF text blocks only: source-page geometry for the original-page view —
+  // [[page, x, yBaseline, width, fontHeight, charCount], ...] per line, in
+  // PDF user space (origin bottom-left). Null for other sources.
+  layout Json?
 
   @@unique([documentId, index])
   @@index([documentId])

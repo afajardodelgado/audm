@@ -36,6 +36,21 @@ export function imagePathFor(
   return path.join(imageDirFor(userId, documentId), asset);
 }
 
+// {root}/{userId}/{documentId}.pages — rendered original-PDF page images,
+// produced on first request and cached (the source file never changes for a
+// given document, so a rendered page is immutable).
+export function pageDirFor(userId: string, documentId: string): string {
+  return path.join(storageRoot(), userId, `${documentId}.pages`);
+}
+
+export function pagePathFor(
+  userId: string,
+  documentId: string,
+  pageNumber: number
+): string {
+  return path.join(pageDirFor(userId, documentId), `${pageNumber}.png`);
+}
+
 /** Persist an uploaded file to the volume, creating the user dir as needed. */
 export async function saveFile(absPath: string, data: Buffer): Promise<void> {
   await mkdir(path.dirname(absPath), { recursive: true });
