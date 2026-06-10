@@ -7,6 +7,7 @@
 - **Import anything** — PDF, EPUB, pasted text, or a web article URL (extracted with Mozilla Readability).
 - **Neural narration** — in-browser text-to-speech via [Kokoro](https://github.com/hexgrad/kokoro), with word-level read-along highlighting. No audio API keys, no server round-trips — the voice model runs client-side (WebGPU, falling back to WASM).
 - **Click-to-narrate** — click a sentence to start reading aloud from there. Adjustable speed (0.75×–3×).
+- **Pick a voice** — a voice menu in the reader toolbar (♪) offers Kokoro's American/British voices; your chosen voice and speed are remembered across sessions.
 - **Auto-scroll** — a silent reading mode that paces the page at a configurable WPM when narration isn't used.
 - **Scanned PDF OCR** — PDFs with no text layer are detected and can be run through OCR ([tesseract.js](https://github.com/naptha/tesseract.js)).
 - **Chapters & book details** — an EPUB's table of contents or a PDF's outline becomes a Contents menu in the reader (`t` toggles it; the chapter being read is marked); publisher/year appear on the shelf card. PDF figures and EPUB illustrations render inline, skipped by narration.

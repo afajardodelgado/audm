@@ -492,6 +492,62 @@ h3.numbered .blockNum {
   font-size: 0.8rem;
   color: var(--ink-soft);
 }
+/* Voice picker — the contents-menu dropdown idiom, opening upward from the
+   bottom toolbar. Items reuse .contentsItem (gold seam + ✓ on the active
+   voice); groups chunk the long voice list by accent. */
+.voiceWrap {
+  position: relative;
+}
+.voiceBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  padding: 0 0.5rem;
+  border: none;
+  background: transparent;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+.voiceBtn:hover:not(:disabled) {
+  color: var(--ink);
+}
+.voiceBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.voiceMenu {
+  position: absolute;
+  bottom: calc(100% + 0.6rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  width: min(17rem, 90vw);
+  max-height: min(50vh, 24rem);
+  overflow-y: auto;
+  list-style: none;
+  padding: 0.3rem;
+  background: var(--paper);
+  border: 1px solid var(--ink-faint);
+  border-radius: 4px;
+  box-shadow: 0 18px 40px -22px rgba(0, 0, 0, 0.4);
+}
+.voiceGroup {
+  padding: 0.55rem 0.6rem 0.25rem;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.voiceGroupList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
 .colors {
   display: flex;
   gap: 0.5rem;

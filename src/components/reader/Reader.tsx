@@ -12,6 +12,7 @@ import { BlockRenderer } from "./BlockRenderer";
 import ContentsMenu from "./ContentsMenu";
 import {
   useScrollEngine,
+  snap,
   stepSpeedValue,
   prefersReducedMotion,
 } from "./useScrollEngine";
@@ -20,8 +21,14 @@ import { useHighlights } from "./useHighlights";
 import { useNarrator } from "./useNarrator";
 import type { NarrationUnit } from "@/lib/narrator/types";
 import { rangeForTarget, parseSid, type HighlightTarget, HL_COLORS } from "@/lib/anchor";
+import {
+  rectsForCharRange,
+  sentenceCharRange,
+  type PageRect,
+} from "@/lib/pageOverlay";
 import { BASE_WPM, CHORD_TIMEOUT_MS, PROGRESS_SAVE_THROTTLE_MS } from "@/lib/constants";
 import ProgressRail from "./ProgressRail";
+import VoiceMenu from "./VoiceMenu";
 import CommentPopover from "./CommentPopover";
 import CommentOverlay from "./CommentOverlay";
 import PdfOriginal from "./PdfOriginal";
@@ -163,6 +170,36 @@ export default function Reader({
 
   // Shared playback rate (multiplier) across narration and the fallback scroll.
   const [rate, setRate] = useState(1);
+
+  // Restore the persisted narration preferences once on mount — the chosen
+  // voice and playback rate survive sessions (keys are global, not per-doc:
+  // they're listener preferences, not document state). The engine applies the
+  // voice when the model loads; an unknown saved id falls back to the default.
+  const [voiceMenuOpen, setVoiceMenuOpen] = useState(false);
+  useEffect(() => {
+    const savedVoice = window.localStorage.getItem("audm:voice");
+    if (savedVoice) narrator.setVoice(savedVoice);
+    const savedRate = Number(window.localStorage.getItem("audm:rate"));
+    if (Number.isFinite(savedRate) && savedRate > 0) {
+      const mult = snap(savedRate);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- restoring a saved client preference once on mount
+      setRate(mult);
+      narrator.setRate(mult);
+      engine.setSpeed(mult);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once on mount
+  }, []);
+
+  // Pick a narration voice: applied immediately (mid-play re-speaks the
+  // current sentence in the new voice) and remembered across sessions.
+  const pickVoice = useCallback(
+    (id: string) => {
+      narrator.setVoice(id);
+      window.localStorage.setItem("audm:voice", id);
+      setVoiceMenuOpen(false);
+    },
+    [narrator]
+  );
 
   // Build the sentence units to speak from the rendered spans, in order. The
   // span text includes a trailing render space between sentences — trim it for
@@ -307,6 +344,114 @@ export default function Reader({
       });
   }, [narrator.currentSid, view, book]);
 
+  // Margin-comment geometry for the current view. CommentOverlay owns the
+  // stacking; these resolve where a highlight IS — its article span in the
+  // Audm/Book views (Book drops anchors that aren't on the visible spread),
+  // or its projected page rect in the Original view.
+  const blockTextMap = useMemo(
+    () => new Map(blocks.map((b) => [b.index, b.text])),
+    [blocks]
+  );
+  const blockLayoutMap = useMemo(
+    () => new Map(blocks.map((b) => [b.index, b.layout ?? null])),
+    [blocks]
+  );
+  const firstRectForSid = useCallback(
+    (sid: string): PageRect | null => {
+      if (!pageDims) return null;
+      const { block, sentence } = parseSid(sid);
+      const text = blockTextMap.get(block);
+      const layout = blockLayoutMap.get(block);
+      if (!text || !layout?.length) return null;
+      const range = sentenceCharRange(text, sentence);
+      if (!range) return null;
+      const rects = rectsForCharRange(layout, pageDims, text.length, range[0], range[1]);
+      return rects[0] ?? null;
+    },
+    [pageDims, blockTextMap, blockLayoutMap]
+  );
+  const noteTopFor = useCallback(
+    (startSid: string): number | null => {
+      const scroller = scrollerRef.current;
+      if (!scroller) return null;
+      const scrollerTop = scroller.getBoundingClientRect().top;
+      if (view === "original") {
+        const rect = firstRectForSid(startSid);
+        if (!rect) return null;
+        const el = scroller.querySelector<HTMLElement>(`[data-page="${rect.page}"]`);
+        if (!el) return null;
+        const box = el.getBoundingClientRect();
+        return box.top + rect.top * box.height - scrollerTop;
+      }
+      const span = contentRef.current?.querySelector<HTMLElement>(
+        `[data-sid="${CSS.escape(startSid)}"]`
+      );
+      if (!span) return null;
+      const r = span.getBoundingClientRect();
+      // Book view: a span on another spread sits in an off-screen column —
+      // its comment belongs to that spread, not this one.
+      if (view === "book" && (r.width === 0 || r.right < 0 || r.left > window.innerWidth)) {
+        return null;
+      }
+      return r.top - scrollerTop;
+    },
+    [view, firstRectForSid]
+  );
+  const noteGutters = useCallback((): { left: number; right: number } | null => {
+    if (view === "original") {
+      const page = scrollerRef.current?.querySelector<HTMLElement>("[data-page]");
+      if (!page) return null;
+      const r = page.getBoundingClientRect();
+      return { left: r.left / 2, right: (r.right + window.innerWidth) / 2 };
+    }
+    if (view === "book") {
+      // The spread fills the scroller and the article element is translated
+      // per spread — anchor to the stable scroller box instead. (Book view
+      // renders compact markers, which only consume the vertical position.)
+      const r = scrollerRef.current?.getBoundingClientRect();
+      return r ? { left: r.left / 2, right: (r.right + window.innerWidth) / 2 } : null;
+    }
+    // Measure the real text-column edges (the centred article box minus its
+    // side padding — the column width is font-relative, so it can't be assumed
+    // in CSS). Each card centres in its margin gutter: the left gutter spans
+    // viewport-left → text start, the right one text end → viewport-right.
+    const content = contentRef.current;
+    if (!content) return null;
+    const rect = content.getBoundingClientRect();
+    const style = getComputedStyle(content);
+    return {
+      left: (rect.left + parseFloat(style.paddingLeft)) / 2,
+      right: (rect.right - parseFloat(style.paddingRight) + window.innerWidth) / 2,
+    };
+  }, [view]);
+  const jumpToNote = useCallback(
+    (sid: string) => {
+      if (view === "book") {
+        book.goToSid(sid);
+        return;
+      }
+      if (view === "original") {
+        const rect = firstRectForSid(sid);
+        const scroller = scrollerRef.current;
+        if (!rect || !scroller) return;
+        const el = scroller.querySelector<HTMLElement>(`[data-page="${rect.page}"]`);
+        if (!el) return;
+        scroller.scrollTo({
+          top: Math.max(0, el.offsetTop + rect.top * el.offsetHeight - scroller.clientHeight / 2),
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+        });
+        return;
+      }
+      contentRef.current
+        ?.querySelector<HTMLElement>(`[data-sid="${CSS.escape(sid)}"]`)
+        ?.scrollIntoView({
+          behavior: prefersReducedMotion() ? "auto" : "smooth",
+          block: "center",
+        });
+    },
+    [view, book, firstRectForSid]
+  );
+
   // Jump to a chapter from the contents menu. Scans forward to the chapter's
   // first narratable sentence (image blocks render no sids). If narration is
   // live it's redirected there; otherwise this only scrolls — opening the
@@ -358,6 +503,7 @@ export default function Reader({
         const next = stepSpeedValue(prev, dir);
         narrator.setRate(next);
         engine.setSpeed(next);
+        window.localStorage.setItem("audm:rate", String(next));
         return next;
       });
     },
@@ -739,7 +885,11 @@ export default function Reader({
           return;
         }
         if (e.key === "Escape") {
-          // An open contents menu eats Escape — it must not also stop narration.
+          // An open menu eats Escape — it must not also stop narration.
+          if (voiceMenuOpen) {
+            setVoiceMenuOpen(false);
+            return;
+          }
           if (tocOpen) {
             setTocOpen(false);
             return;
@@ -834,7 +984,7 @@ export default function Reader({
       window.removeEventListener("keydown", onKey);
       if (chordState.timer) window.clearTimeout(chordState.timer);
     };
-  }, [engine, narrator, togglePlay, changeRate, doHighlight, removeCurrent, tocOpen, hasToc, altView, view, pickView, turnNext, turnPrev]);
+  }, [engine, narrator, togglePlay, changeRate, doHighlight, removeCurrent, tocOpen, voiceMenuOpen, hasToc, altView, view, pickView, turnNext, turnPrev]);
 
   if (status !== "ready") {
     return (
@@ -1021,6 +1171,16 @@ export default function Reader({
             +
           </button>
         </div>
+        {narrator.supported && (
+          <VoiceMenu
+            voices={narrator.voices}
+            voiceId={narrator.voiceId}
+            open={voiceMenuOpen}
+            onToggle={() => setVoiceMenuOpen((o) => !o)}
+            onClose={() => setVoiceMenuOpen(false)}
+            onSelect={pickVoice}
+          />
+        )}
         <div className={styles.colors}>
           {HL_COLORS.map((c) => (
             <button
@@ -1036,16 +1196,18 @@ export default function Reader({
         {chord && <div className={styles.chordHint}>{chord} …</div>}
       </footer>
 
-      {/* Margin comment cards belong to the scrolling Audm layout; the other
-          views show highlights only. */}
-      {view === "audm" && (
-        <CommentOverlay
-          highlights={hl.highlights}
-          contentRef={contentRef}
-          scrollerRef={scrollerRef}
-          ready={ready}
-        />
-      )}
+      {/* Margin comment cards follow the highlight into every view: beside
+          the article column, the Original page, or the visible Book spread. */}
+      <CommentOverlay
+        highlights={hl.highlights}
+        scrollerRef={scrollerRef}
+        ready={ready}
+        topFor={noteTopFor}
+        gutters={noteGutters}
+        onJump={jumpToNote}
+        recomputeKey={`${view}:${book.spread}:${book.spreadCount}`}
+        compact={view === "book"}
+      />
 
       {pendingComment && (
         <CommentPopover

@@ -8,7 +8,6 @@ import {
   useCallback,
 } from "react";
 import type { HighlightData } from "@/lib/types";
-import { prefersReducedMotion } from "./useScrollEngine";
 import styles from "./Reader.module.css";
 
 interface Note {
@@ -35,63 +34,68 @@ const STACK_GAP = 10;
 // Same-side cards that would overlap are stacked downward. Each card carries
 // prev/next arrows that scroll to the adjacent comment. On narrow screens the
 // cards collapse to tappable markers.
+//
+// The overlay owns layout (stacking, sides, narrow fallback) but NOT geometry:
+// the reader injects `topFor` / `gutters` / `onJump`, so the same cards follow
+// the highlight wherever the view projects it — the reflowed article, the
+// Original PDF pages, or the Book spread (where an off-spread anchor resolves
+// to null and its card simply isn't shown).
 export default function CommentOverlay({
   highlights,
-  contentRef,
   scrollerRef,
   ready,
+  topFor,
+  gutters,
+  onJump,
+  recomputeKey,
+  compact,
 }: {
   highlights: HighlightData[];
-  contentRef: React.RefObject<HTMLElement | null>;
   scrollerRef: React.RefObject<HTMLElement | null>;
   ready: boolean;
+  /** Resolve a highlight's start sentence to a top (px, scroller frame), or
+   *  null when it isn't visible in the current view. */
+  topFor: (startSid: string) => number | null;
+  /** Centre x of the left/right margin gutters in the current view. */
+  gutters: () => { left: number; right: number } | null;
+  /** Bring the highlight for `startSid` into view (view-specific). */
+  onJump: (startSid: string) => void;
+  /** Changes when the view or its pagination shifts — forces a recompute. */
+  recomputeKey?: string;
+  /** Force the compact marker layout regardless of viewport width — used by
+   *  the Book view, whose spread leaves no margin for full cards. */
+  compact?: boolean;
 }) {
   const [notes, setNotes] = useState<Note[]>([]);
-  const [narrow, setNarrow] = useState(false);
+  const [narrowViewport, setNarrowViewport] = useState(false);
+  const narrow = narrowViewport || !!compact;
   const [openId, setOpenId] = useState<string | null>(null); // expanded marker (narrow)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   useEffect(() => {
     const mq = window.matchMedia(NARROW_QUERY);
-    const sync = () => setNarrow(mq.matches);
+    const sync = () => setNarrowViewport(mq.matches);
     sync();
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
   }, []);
 
   const recompute = useCallback(() => {
-    const content = contentRef.current;
-    const scroller = scrollerRef.current;
-    if (!content || !scroller) return;
-    const scrollerTop = scroller.getBoundingClientRect().top;
-
-    // Measure the real text-column edges (the centred article box minus its
-    // side padding — the column width is font-relative, so it can't be assumed
-    // in CSS). Each card centres in its margin gutter: the left gutter spans
-    // viewport-left → text start, the right one text end → viewport-right.
-    const contentRect = content.getBoundingClientRect();
-    const contentStyle = getComputedStyle(content);
-    const textLeft = contentRect.left + parseFloat(contentStyle.paddingLeft);
-    const textRight = contentRect.right - parseFloat(contentStyle.paddingRight);
-    const gutterCenter = {
-      left: textLeft / 2,
-      right: (textRight + window.innerWidth) / 2,
-    };
+    const gutterCenter = gutters();
+    if (!gutterCenter) return;
 
     // Resolve each commented highlight to its on-screen vertical position, drop
-    // any whose start sentence isn't rendered, then order top-to-bottom so the
+    // any the current view doesn't show, then order top-to-bottom so the
     // left/right alternation reads naturally down the page.
     const positioned = highlights
       .filter((h) => h.comments.length > 0)
       .map((h) => {
-        const span = content.querySelector<HTMLElement>(
-          `[data-sid="${CSS.escape(h.startSid)}"]`
-        );
-        if (!span) return null;
+        const top = topFor(h.startSid);
+        if (top === null) return null;
         return {
           id: h.id,
           startSid: h.startSid,
-          top: span.getBoundingClientRect().top - scrollerTop,
+          top,
           comments: h.comments,
           color: h.color,
         };
@@ -116,7 +120,7 @@ export default function CommentOverlay({
         return { ...n, side, top, left: gutterCenter[side] };
       })
     );
-  }, [highlights, contentRef, scrollerRef]);
+  }, [highlights, topFor, gutters]);
 
   useEffect(() => {
     if (!ready) return;
@@ -129,7 +133,7 @@ export default function CommentOverlay({
       scroller.removeEventListener("scroll", recompute);
       window.removeEventListener("resize", recompute);
     };
-  }, [ready, recompute, scrollerRef]);
+  }, [ready, recompute, scrollerRef, recomputeKey]);
 
   // After the cards mount, run one more pass so the first paint's unmeasured
   // heights are replaced by real ones (stacking settles without a visible jump).
@@ -138,21 +142,15 @@ export default function CommentOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notes.length, narrow]);
 
-  // Scroll the comment at `index` (in reading order) into the centre of view.
+  // Bring the comment at `index` (in reading order) into view.
   const jumpTo = useCallback(
     (index: number) => {
       const n = notes[index];
       if (!n) return;
-      const span = contentRef.current?.querySelector<HTMLElement>(
-        `[data-sid="${CSS.escape(n.startSid)}"]`
-      );
-      span?.scrollIntoView({
-        behavior: prefersReducedMotion() ? "auto" : "smooth",
-        block: "center",
-      });
+      onJump(n.startSid);
       if (narrow) setOpenId(n.id);
     },
-    [notes, contentRef, narrow]
+    [notes, onJump, narrow]
   );
 
   if (!notes.length) return null;

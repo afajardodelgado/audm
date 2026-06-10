@@ -4,6 +4,7 @@ import type {
   ModelStatus,
   NarratorEngine,
   NarratorState,
+  NarratorVoice,
   NarrationUnit,
   WordRange,
 } from "@/lib/narrator/types";
@@ -32,6 +33,8 @@ export interface NarratorApi {
   rate: number;
   modelStatus: ModelStatus;
   loadProgress: number;
+  voices: NarratorVoice[];
+  voiceId: string | null;
   play: (units: NarrationUnit[], fromSid?: string) => void;
   pause: () => void;
   resume: () => void;
@@ -39,6 +42,7 @@ export interface NarratorApi {
   toggle: (getUnits: () => NarrationUnit[], fromSid?: string) => void;
   stop: () => void;
   setRate: (mult: number) => void;
+  setVoice: (id: string) => void;
 }
 
 export function useNarrator(): NarratorApi {
@@ -79,6 +83,7 @@ export function useNarrator(): NarratorApi {
   const resume = useCallback(() => engineRef.current?.resume(), []);
   const stop = useCallback(() => engineRef.current?.stop(), []);
   const setRate = useCallback((m: number) => engineRef.current?.setRate(m), []);
+  const setVoice = useCallback((id: string) => engineRef.current?.setVoice(id), []);
 
   const toggle = useCallback(
     (getUnits: () => NarrationUnit[], fromSid?: string) => {
@@ -100,11 +105,14 @@ export function useNarrator(): NarratorApi {
     rate: state.rate,
     modelStatus: state.modelStatus,
     loadProgress: state.loadProgress,
+    voices: state.voices,
+    voiceId: state.voiceId,
     play,
     pause,
     resume,
     toggle,
     stop,
     setRate,
+    setVoice,
   };
 }
