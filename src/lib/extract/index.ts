@@ -159,11 +159,7 @@ export async function extractDocumentOcr(documentId: string): Promise<void> {
 
   try {
     const data = await readStoredFile(doc.filePath);
-    const numPages =
-      typeof doc.meta === "object" && doc.meta !== null && "numPages" in doc.meta
-        ? Number((doc.meta as { numPages?: number }).numPages) || 0
-        : 0;
-    const result = await runOcr(data, numPages);
+    const result = await runOcr(data);
 
     if (!result.blocks.length) {
       await prisma.document.update({

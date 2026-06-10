@@ -10,6 +10,12 @@ export const MAX_UPLOAD_BYTES = 80 * 1024 * 1024; // 80 MB
 /** Max length of pasted text accepted by the import route (characters). */
 export const MAX_TEXT_CHARS = 2_000_000; // ~2 MB of text
 
+/** Max pages a PDF may have before extraction refuses it. Bounds the per-page
+ *  work (text walk, image pass, OCR, page renders) a single upload can trigger
+ *  — a few KB of zip-compressed PDF can otherwise encode thousands of pages.
+ *  Generous: legitimate scanned books run 300–600 pages. */
+export const MAX_PDF_PAGES = 1200;
+
 /** Time to complete a multi-key reader chord before the buffer resets (ms). */
 export const CHORD_TIMEOUT_MS = 1100;
 
