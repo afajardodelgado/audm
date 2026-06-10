@@ -151,6 +151,35 @@ export function useBookPaging(
     [spreadOfSid, go]
   );
 
+  /** Narration follow at WORD granularity: a sentence that starts on this
+   *  spread can continue onto the next one, and the turn must happen the
+   *  moment the voice crosses the boundary — not when the next sentence
+   *  starts. The word's column X is the span's own column position (the
+   *  hook's offsetLeft coordinate) plus the word's client-space offset from
+   *  the span's first fragment — client deltas are translation-invariant, so
+   *  this stays in the same space spreadOfSid uses. */
+  const ensureWordVisible = useCallback(
+    (span: HTMLElement, start: number, end: number) => {
+      const content = contentRef.current;
+      const node = span.firstChild;
+      if (!content || !node || node.nodeType !== Node.TEXT_NODE) return;
+      const len = (node as Text).length;
+      const r = document.createRange();
+      r.setStart(node, Math.min(start, len));
+      r.setEnd(node, Math.min(end, len));
+      const wordRect = r.getClientRects()[0];
+      const spanRect = span.getClientRects()[0];
+      if (!wordRect || !spanRect) return;
+      const columnX =
+        columnXof(content, span) + (wordRect.left - spanRect.left);
+      const target = Math.floor(columnX / strideRef.current);
+      if (target === spreadRef.current) return;
+      anchorSidRef.current = span.dataset.sid ?? anchorSidRef.current;
+      go(target);
+    },
+    [contentRef, columnXof, go]
+  );
+
   // Apply geometry, then measure how many spreads the flow occupies;
   // re-run on resize (the column layout reflows with the viewport).
   useEffect(() => {
@@ -224,6 +253,7 @@ export function useBookPaging(
     prevSpread,
     goToSid,
     ensureVisible,
+    ensureWordVisible,
     currentSid,
   };
 }

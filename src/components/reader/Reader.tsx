@@ -737,14 +737,21 @@ export default function Reader({
     return () => cancelAnimationFrame(raf);
   }, [narrator.playing, resolveSpan, view]);
 
-  // Book view: narration follow turns the page only when the spoken sentence
+  // Book view: narration follow turns the page only when the SPOKEN WORD
   // moves onto a spread that isn't currently shown — a sentence on the visible
-  // spread's right page stays put (it's already in view).
+  // spread's right page stays put (it's already in view), but a sentence that
+  // continues onto the next spread turns the page the moment the voice
+  // crosses, not when the next sentence starts. Without a word position yet
+  // (the beat before a sentence's timings arrive) fall back to the sentence.
   useEffect(() => {
     if (view !== "book" || !narrator.playing || !followScroll) return;
     const sid = narrator.currentSid;
-    if (sid) book.ensureVisible(sid);
-  }, [view, narrator.playing, narrator.currentSid, followScroll, book]);
+    if (!sid) return;
+    const wr = narrator.currentWordRange;
+    const span = wr && wr.sid === sid ? resolveSpan(sid) : null;
+    if (wr && span) book.ensureWordVisible(span, wr.start, wr.end);
+    else book.ensureVisible(sid);
+  }, [view, narrator.playing, narrator.currentSid, narrator.currentWordRange, followScroll, book, resolveSpan]);
 
   // Manual page turns suspend narration follow (like wheel/touch in the
   // scrolling views); Re-center re-engages it.

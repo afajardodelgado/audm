@@ -188,21 +188,31 @@ export default function PdfOriginal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Follow narration: keep the active band near the focus line. Stepwise (per
-  // sentence) rather than a per-frame crawl — honest for page images, and
-  // automatically calm under reduced motion.
+  // Follow narration: keep the SPOKEN WORD near the focus line, falling back
+  // to the sentence's first line before word timings arrive. Stepwise (only
+  // when the target drifts past the threshold) rather than a per-frame crawl —
+  // honest for page images, and automatically calm under reduced motion.
+  // A PAGE CROSSING recenters immediately, threshold ignored: a sentence that
+  // began at the foot of one page pulls the view to the next page the moment
+  // the voice crosses (on screen the next page's first line is barely below
+  // the previous foot, so drift alone would never trip the threshold).
+  const followPageRef = useRef<number | null>(null);
   useEffect(() => {
-    if (!follow || !activeRects.length) return;
+    if (!follow) return;
+    const target = wordRects[0] ?? activeRects[0];
+    if (!target) return;
     const scroller = scrollerRef.current;
-    const el = pageEl(activeRects[0].page);
+    const el = pageEl(target.page);
     if (!scroller || !el) return;
-    const y =
-      el.offsetTop + activeRects[0].top * el.offsetHeight - scroller.scrollTop;
+    const pageChanged =
+      followPageRef.current !== null && followPageRef.current !== target.page;
+    followPageRef.current = target.page;
+    const y = el.offsetTop + target.top * el.offsetHeight - scroller.scrollTop;
     const center = scroller.clientHeight / 2;
-    if (Math.abs(y - center) > scroller.clientHeight * 0.18) {
-      scrollToRect(activeRects[0], true);
+    if (pageChanged || Math.abs(y - center) > scroller.clientHeight * 0.18) {
+      scrollToRect(target, true);
     }
-  }, [activeRects, follow, scrollerRef, pageEl, scrollToRect]);
+  }, [activeRects, wordRects, follow, scrollerRef, pageEl, scrollToRect]);
 
   // Report the sentence at the viewport focus line (drives chords/progress).
   useEffect(() => {
