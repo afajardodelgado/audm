@@ -169,9 +169,24 @@ function randomId(): string {
 type EpubFile = Awaited<ReturnType<typeof initEpubFile>>;
 
 // Table-of-contents guards: cap label length and total entries so one
-// pathological book can't bloat Document.meta or the contents menu.
-const TOC_LABEL_MAX = 120;
+// pathological book can't bloat Document.meta or the contents menu. Shared
+// with the PDF outline builder (pdf.ts), like htmlToBlocks is with url.ts.
+export const TOC_LABEL_MAX = 120;
 const MAX_TOC_ENTRIES = 500;
+
+/** Shared tail for TOC builders (EPUB nav, PDF outline): order by block,
+ *  keep the first entry per block (the chapter-level entry beats fragment
+ *  children), cap the count, and only return a list worth a menu (≥ 2). */
+export function finalizeToc(
+  entries: { label: string; block: number; depth: number }[]
+): { label: string; block: number; depth: number }[] | undefined {
+  entries.sort((a, b) => a.block - b.block); // stable — document order kept per block
+  const deduped = entries.filter(
+    (e, i) => i === 0 || e.block !== entries[i - 1].block
+  );
+  const capped = deduped.slice(0, MAX_TOC_ENTRIES);
+  return capped.length >= 2 ? capped : undefined;
+}
 
 interface TocPoint {
   label: string;
@@ -231,10 +246,7 @@ function buildEpubToc(
     return undefined;
   }
 
-  out.sort((a, b) => a.block - b.block); // stable — document order kept per block
-  const deduped = out.filter((e, i) => i === 0 || e.block !== out[i - 1].block);
-  const capped = deduped.slice(0, MAX_TOC_ENTRIES);
-  return capped.length >= 2 ? capped : undefined;
+  return finalizeToc(out);
 }
 
 const DESCRIPTION_MAX = 600;

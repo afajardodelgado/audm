@@ -9,7 +9,7 @@
 - **Click-to-narrate** — click a sentence to start reading aloud from there. Adjustable speed (0.75×–3×).
 - **Auto-scroll** — a silent reading mode that paces the page at a configurable WPM when narration isn't used.
 - **Scanned PDF OCR** — PDFs with no text layer are detected and can be run through OCR ([tesseract.js](https://github.com/naptha/tesseract.js)).
-- **Chapters & book details** — an EPUB's table of contents becomes a Contents menu in the reader (`t` toggles it; the chapter being read is marked); publisher and year appear on the shelf card.
+- **Chapters & book details** — an EPUB's table of contents or a PDF's outline becomes a Contents menu in the reader (`t` toggles it; the chapter being read is marked); publisher/year appear on the shelf card. PDF figures and EPUB illustrations render inline, skipped by narration.
 - **Highlights & comments** — select text or use keyboard chords to highlight in four colors; attach comments. Highlights are anchored to stable sentence IDs so they survive reloads and re-extraction.
 - **Resume where you left off** — reading progress is tracked per sentence and shown as a badge on the shelf.
 
