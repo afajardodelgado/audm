@@ -15,6 +15,10 @@
 
 # next.js
 /.next/
+# iCloud-synced Desktops: .next may be a symlink to .next.nosync so the sync
+# daemon can't delete dev artifacts out from under the dev server.
+/.next
+/.next.nosync/
 /out/
 
 # production
