@@ -15,7 +15,14 @@ export async function GET(
   if (!doc) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
-  const data = await readStoredFile(doc.filePath);
+  let data: Buffer;
+  try {
+    data = await readStoredFile(doc.filePath);
+  } catch {
+    // The row exists but its file is gone from the volume (e.g. storage was
+    // wiped or never persistent) — a missing resource, not a server fault.
+    return NextResponse.json({ error: "File missing from storage." }, { status: 404 });
+  }
   const type =
     doc.sourceType === "pdf" ? "application/pdf" : "application/epub+zip";
   return new NextResponse(new Uint8Array(data), {

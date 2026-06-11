@@ -42,9 +42,16 @@ export async function GET(
   try {
     png = await readStoredFile(cached);
   } catch {
+    // No cached render — render from the source PDF. A missing source file
+    // (storage wiped / never persistent) is a 404, not a render failure.
+    let file: Buffer;
+    try {
+      file = await readStoredFile(doc.filePath);
+    } catch {
+      return NextResponse.json({ error: "File missing from storage." }, { status: 404 });
+    }
     try {
       const { renderPageAsImage } = await import("unpdf");
-      const file = await readStoredFile(doc.filePath);
       const rendered = await renderPageAsImage(
         new Uint8Array(file),
         pageNumber,
