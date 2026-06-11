@@ -9,6 +9,13 @@
 // in-flight extraction.)
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  // Storage falls back to ./data when no volume is mounted (storage.ts) —
+  // ephemeral inside a container, so every redeploy silently wipes uploads.
+  if (process.env.RAILWAY_ENVIRONMENT && !process.env.RAILWAY_VOLUME_MOUNT_PATH) {
+    console.warn(
+      "[boot] RAILWAY_ENVIRONMENT is set but RAILWAY_VOLUME_MOUNT_PATH is not — uploads will land on the container's ephemeral filesystem and be lost on redeploy. Attach a volume to this service."
+    );
+  }
   try {
     const { prisma } = await import("@/lib/db");
     const stranded = await prisma.document.updateMany({
